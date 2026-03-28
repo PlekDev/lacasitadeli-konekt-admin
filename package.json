@@ -1,0 +1,8 @@
+{
+  "name": "lacasita-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Usa iniciar.sh o iniciar.bat'"
+  }
+}
