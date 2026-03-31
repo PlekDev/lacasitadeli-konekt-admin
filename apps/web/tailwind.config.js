@@ -7,9 +7,9 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          dark: '#063b2a',
-          DEFAULT: '#0a5c42',
-          light: '#0e7d5a',
+          dark: '#042b1f',
+          DEFAULT: '#063b2a',
+          light: '#0a5c42',
         },
         sidebar: {
           bg: '#042b1f',
