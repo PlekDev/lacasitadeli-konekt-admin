@@ -1,17 +1,11 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-const DB_PATH = path.join(__dirname, 'lacasita.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-let db;
-
-function getDb() {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-  }
-  return db;
-}
-
-module.exports = { getDb };
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+  getPool: () => pool
+};

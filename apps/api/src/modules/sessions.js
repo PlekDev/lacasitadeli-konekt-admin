@@ -1,57 +1,56 @@
 const express = require('express');
-const { getDb } = require('../db');
+const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
 // GET /api/sessions/active - get active session for a location
-router.get('/active', (req, res) => {
-  const db = getDb();
+router.get('/active', async (req, res) => {
   const { locationId } = req.query;
 
   try {
-    const session = db.prepare(`
-      SELECT cs.*, u.name AS cashierName, l.name AS locationName
-      FROM CashSession cs
-      LEFT JOIN User u ON cs.cashierId = u.id
-      LEFT JOIN Location l ON cs.locationId = l.id
-      WHERE cs.locationId = ? AND cs.status = 'abierta'
-      ORDER BY cs.openedAt DESC LIMIT 1
-    `).get(locationId);
+    const result = await db.query(`
+      SELECT cs.*, u.name AS "cashierName", l.name AS "locationName"
+      FROM "CashSession" cs
+      LEFT JOIN "User" u ON cs."cashierId" = u.id
+      LEFT JOIN "Location" l ON cs."locationId" = l.id
+      WHERE cs."locationId" = $1 AND cs.status = 'abierta'
+      ORDER BY cs."openedAt" DESC LIMIT 1
+    `, [locationId]);
 
-    res.json(session || null);
+    res.json(result.rows[0] || null);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener sesión' });
   }
 });
 
 // POST /api/sessions/open - open a new cash session
-router.post('/open', (req, res) => {
-  const db = getDb();
+router.post('/open', async (req, res) => {
   const { locationId, cashierId, openingCash } = req.body;
 
   try {
     // Close any existing open sessions for this location
-    const now = Date.now();
-    db.prepare(`
-      UPDATE CashSession SET status = 'cerrada', closedAt = ?, updatedAt = ?
-      WHERE locationId = ? AND status = 'abierta'
-    `).run(now, now, locationId);
+    const now = new Date();
+    await db.query(`
+      UPDATE "CashSession" SET status = 'cerrada', "closedAt" = $1, "updatedAt" = $1
+      WHERE "locationId" = $2 AND status = 'abierta'
+    `, [now, locationId]);
 
     const id = uuidv4().replace(/-/g, '').substring(0, 25);
-    db.prepare(`
-      INSERT INTO CashSession (id, locationId, cashierId, openingCash, openedAt, totalSales, totalCash, totalCard, totalTransfer, totalItems, status, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 'abierta', ?, ?)
-    `).run(id, locationId, cashierId, openingCash || 0, now, now, now);
+    await db.query(`
+      INSERT INTO "CashSession" (id, "locationId", "cashierId", "openingCash", "openedAt", "totalSales", "totalCash", "totalCard", "totalTransfer", "totalItems", status, "createdAt", "updatedAt")
+      VALUES ($1, $2, $3, $4, $5, 0, 0, 0, 0, 0, 'abierta', $5, $5)
+    `, [id, locationId, cashierId, openingCash || 0, now]);
 
-    const session = db.prepare(`
-      SELECT cs.*, u.name AS cashierName, l.name AS locationName
-      FROM CashSession cs
-      LEFT JOIN User u ON cs.cashierId = u.id
-      LEFT JOIN Location l ON cs.locationId = l.id
-      WHERE cs.id = ?
-    `).get(id);
+    const result = await db.query(`
+      SELECT cs.*, u.name AS "cashierName", l.name AS "locationName"
+      FROM "CashSession" cs
+      LEFT JOIN "User" u ON cs."cashierId" = u.id
+      LEFT JOIN "Location" l ON cs."locationId" = l.id
+      WHERE cs.id = $1
+    `, [id]);
 
-    res.json(session);
+    res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al abrir caja' });
@@ -59,28 +58,28 @@ router.post('/open', (req, res) => {
 });
 
 // POST /api/sessions/close/:id - close a cash session
-router.post('/close/:id', (req, res) => {
-  const db = getDb();
+router.post('/close/:id', async (req, res) => {
   const { id } = req.params;
   const { closingCash, notes } = req.body;
-  const now = Date.now();
+  const now = new Date();
 
   try {
-    const session = db.prepare(`SELECT * FROM CashSession WHERE id = ?`).get(id);
+    const sessionRes = await db.query(`SELECT * FROM "CashSession" WHERE id = $1`, [id]);
+    const session = sessionRes.rows[0];
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    const expectedCash = session.openingCash + session.totalCash;
-    const difference = (closingCash || 0) - expectedCash;
+    const expectedCash = parseFloat(session.openingCash) + parseFloat(session.totalCash);
+    const difference = (parseFloat(closingCash) || 0) - expectedCash;
 
-    db.prepare(`
-      UPDATE CashSession SET 
-        status = 'cerrada', closedAt = ?, closingCash = ?, 
-        expectedCash = ?, difference = ?, notes = ?, updatedAt = ?
-      WHERE id = ?
-    `).run(now, closingCash || 0, expectedCash, difference, notes || null, now, id);
+    await db.query(`
+      UPDATE "CashSession" SET
+        status = 'cerrada', "closedAt" = $1, "closingCash" = $2,
+        "expectedCash" = $3, "difference" = $4, notes = $5, "updatedAt" = $1
+      WHERE id = $6
+    `, [now, closingCash || 0, expectedCash, difference, notes || null, id]);
 
-    const closed = db.prepare(`SELECT * FROM CashSession WHERE id = ?`).get(id);
-    res.json(closed);
+    const closedRes = await db.query(`SELECT * FROM "CashSession" WHERE id = $1`, [id]);
+    res.json(closedRes.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al cerrar caja' });
@@ -88,38 +87,38 @@ router.post('/close/:id', (req, res) => {
 });
 
 // GET /api/sessions/:id/summary - full session summary with sales
-router.get('/:id/summary', (req, res) => {
-  const db = getDb();
+router.get('/:id/summary', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const session = db.prepare(`
-      SELECT cs.*, u.name AS cashierName, l.name AS locationName
-      FROM CashSession cs
-      LEFT JOIN User u ON cs.cashierId = u.id
-      LEFT JOIN Location l ON cs.locationId = l.id
-      WHERE cs.id = ?
-    `).get(id);
+    const sessionRes = await db.query(`
+      SELECT cs.*, u.name AS "cashierName", l.name AS "locationName"
+      FROM "CashSession" cs
+      LEFT JOIN "User" u ON cs."cashierId" = u.id
+      LEFT JOIN "Location" l ON cs."locationId" = l.id
+      WHERE cs.id = $1
+    `, [id]);
 
+    const session = sessionRes.rows[0];
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
 
-    const sales = db.prepare(`
+    const salesRes = await db.query(`
       SELECT s.*, 
-        (SELECT COUNT(*) FROM SaleItem si WHERE si.saleId = s.id) AS numProductos
-      FROM Sale s WHERE s.sessionId = ? ORDER BY s.createdAt DESC
-    `).all(id);
+        (SELECT COUNT(*) FROM "SaleItem" si WHERE si."saleId" = s.id)::int AS "numProductos"
+      FROM "Sale" s WHERE s."sessionId" = $1 ORDER BY s."createdAt" DESC
+    `, [id]);
 
-    const topProducts = db.prepare(`
-      SELECT p.name, SUM(si.quantity) AS unidades, SUM(si.subtotal) AS total
-      FROM SaleItem si
-      JOIN Sale s ON si.saleId = s.id
-      JOIN Product p ON si.productId = p.id
-      WHERE s.sessionId = ?
-      GROUP BY si.productId
+    const topProductsRes = await db.query(`
+      SELECT p.name, SUM(si.quantity)::float AS unidades, SUM(si.subtotal)::float AS total
+      FROM "SaleItem" si
+      JOIN "Sale" s ON si."saleId" = s.id
+      JOIN "Product" p ON si."productId" = p.id
+      WHERE s."sessionId" = $1
+      GROUP BY si."productId", p.name
       ORDER BY unidades DESC LIMIT 10
-    `).all(id);
+    `, [id]);
 
-    res.json({ session, sales, topProducts });
+    res.json({ session, sales: salesRes.rows, topProducts: topProductsRes.rows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener resumen' });

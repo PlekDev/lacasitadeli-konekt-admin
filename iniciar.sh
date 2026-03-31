@@ -8,29 +8,35 @@ echo "  🏪  La Casita — Sistema de Punto de Venta"
 echo "  ──────────────────────────────────────────"
 echo ""
 
-# Check Python
-if ! command -v python3 &> /dev/null; then
-    echo "  ❌ Python 3 no encontrado. Instálalo desde https://python.org"
+# Check Node.js
+if ! command -v node &> /dev/null; then
+    echo "  ❌ Node.js no encontrado. Instálalo desde https://nodejs.org"
     exit 1
 fi
 
-# Check Flask
-if ! python3 -c "import flask" 2>/dev/null; then
-    echo "  📦 Instalando Flask..."
-    pip3 install flask --break-system-packages -q || pip3 install flask -q
-fi
+# Kill any existing processes on 3001 and 3002
+echo "  🛑 Deteniendo procesos anteriores en puertos 3001 y 3002..."
+kill $(lsof -t -i :3001) $(lsof -t -i :3002) 2>/dev/null || true
 
-echo "  ✅ Iniciando servidor..."
+echo "  🚀 Iniciando API Backend en puerto 3002..."
+cd apps/api
+npm install -s
+PORT=3002 node src/index.js > api.log 2>&1 &
+
+echo "  🚀 Iniciando Frontend (Next.js) en puerto 3001..."
+cd ../web
+npm install -s
+npm run dev -- -p 3001 > web.log 2>&1 &
+
 echo ""
+echo "  ✅ Sistema listo."
 echo "  👉 Abre tu navegador en: http://localhost:3001"
 echo ""
 echo "  Usuarios de prueba:"
-echo "    cajero1@lacasita.com / cajero123"
-echo "    cajero2@lacasita.com / cajero123"
-echo "    admin@lacasita.com   / admin123"
+echo "    admin@lacasita.com / admin123"
 echo ""
-echo "  Presiona Ctrl+C para detener el servidor"
+echo "  Presiona Ctrl+C para salir (se detendrán los logs, pero los procesos seguirán hasta que el script termine)"
 echo ""
 
-cd "$(dirname "$0")/apps/api/src"
-python3 server.py
+# Monitor logs
+tail -f api.log -f ../web/web.log
