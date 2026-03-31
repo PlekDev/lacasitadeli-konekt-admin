@@ -1,39 +1,38 @@
 const express = require('express');
-const { getDb } = require('../db');
+const db = require('../db');
 const router = express.Router();
 
 // GET /api/products - search products with inventory for a location
-router.get('/', (req, res) => {
-  const db = getDb();
+router.get('/', async (req, res) => {
   const { q, locationId, categoryId } = req.query;
 
   let sql = `
     SELECT 
-      p.id, p.barcode, p.name, p.salePrice, p.costPrice, p.unit,
-      c.name AS category, c.color AS categoryColor,
-      COALESCE(i.quantity, 0) AS stock,
-      i.minStock
-    FROM Product p
-    LEFT JOIN Category c ON p.categoryId = c.id
-    LEFT JOIN Inventory i ON p.id = i.productId AND i.locationId = ?
-    WHERE p.active = 1
+      p."id", p."barcode", p."name", p."salePrice", p."costPrice", p."unit",
+      c."name" AS category, c."color" AS "categoryColor",
+      COALESCE(i."quantity", 0) AS stock,
+      i."minStock" AS "minStock"
+    FROM "Product" p
+    LEFT JOIN "Category" c ON p."categoryId" = c."id"
+    LEFT JOIN "Inventory" i ON p."id" = i."productId" AND i."locationId" = $1
+    WHERE p."active" = true
   `;
-  const params = [locationId || ''];
+  const params = [locationId || 'loc1']; // Default to loc1 for consistency
 
   if (q) {
-    sql += ` AND (p.name LIKE ? OR p.barcode LIKE ?)`;
-    params.push(`%${q}%`, `%${q}%`);
+    sql += ` AND (p."name" ILIKE $${params.length + 1} OR p."barcode" ILIKE $${params.length + 1})`;
+    params.push(`%${q}%`);
   }
   if (categoryId) {
-    sql += ` AND p.categoryId = ?`;
+    sql += ` AND p."categoryId" = $${params.length + 1}`;
     params.push(categoryId);
   }
 
-  sql += ` ORDER BY p.name ASC`;
+  sql += ` ORDER BY p."name" ASC`;
 
   try {
-    const rows = db.prepare(sql).all(...params);
-    res.json(rows);
+    const result = await db.query(sql, params);
+    res.json(result.rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Error al obtener productos' });
@@ -41,29 +40,29 @@ router.get('/', (req, res) => {
 });
 
 // GET /api/products/search-all - search across ALL locations (for inventory count)
-router.get('/search-all', (req, res) => {
-  const db = getDb();
+router.get('/search-all', async (req, res) => {
   const { q } = req.query;
 
   if (!q || q.length < 2) return res.json([]);
 
   const sql = `
     SELECT 
-      p.id, p.barcode, p.name, p.salePrice, p.costPrice, p.unit,
-      c.name AS category,
-      l.id AS locationId, l.name AS locationName, l.type AS locationType,
-      COALESCE(i.quantity, 0) AS stock,
-      i.minStock
-    FROM Product p
-    LEFT JOIN Category c ON p.categoryId = c.id
-    LEFT JOIN Location l ON l.active = 1
-    LEFT JOIN Inventory i ON p.id = i.productId AND i.locationId = l.id
-    WHERE p.active = 1 AND (p.name LIKE ? OR p.barcode LIKE ?)
-    ORDER BY p.name, l.name
+      p."id", p."barcode", p."name", p."salePrice", p."costPrice", p."unit",
+      c."name" AS category,
+      l."id" AS "locationId", l."name" AS "locationName", l."type" AS "locationType",
+      COALESCE(i."quantity", 0) AS stock,
+      i."minStock" AS "minStock"
+    FROM "Product" p
+    LEFT JOIN "Category" c ON p."categoryId" = c."id"
+    LEFT JOIN "Location" l ON l."active" = true
+    LEFT JOIN "Inventory" i ON p."id" = i."productId" AND i."locationId" = l."id"
+    WHERE p."active" = true AND (p."name" ILIKE $1 OR p."barcode" ILIKE $1)
+    ORDER BY p."name", l."name"
   `;
 
   try {
-    const rows = db.prepare(sql).all(`%${q}%`, `%${q}%`);
+    const result = await db.query(sql, [`%${q}%`]);
+    const rows = result.rows;
 
     // Group by product
     const grouped = {};
@@ -89,7 +88,7 @@ router.get('/search-all', (req, res) => {
           stock: row.stock,
           minStock: row.minStock
         });
-        grouped[row.id].totalStock += row.stock;
+        grouped[row.id].totalStock += parseFloat(row.stock);
       }
     });
 
@@ -101,12 +100,12 @@ router.get('/search-all', (req, res) => {
 });
 
 // GET /api/products/categories
-router.get('/categories', (req, res) => {
-  const db = getDb();
+router.get('/categories', async (req, res) => {
   try {
-    const rows = db.prepare(`SELECT * FROM Category WHERE active = 1 ORDER BY name`).all();
-    res.json(rows);
+    const result = await db.query(`SELECT * FROM "Category" WHERE "active" = true ORDER BY "name"`);
+    res.json(result.rows);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Error al obtener categorías' });
   }
 });
