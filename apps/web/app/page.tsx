@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [recentSales, setRecentSales] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // UI States
   const [timeFilter, setTimeFilter] = useState('Hoy');
@@ -236,13 +237,21 @@ export default function Dashboard() {
           initialStock: parseFloat(productData.stock as string || '0'),
         })
       });
+      const data = await res.json();
       if (res.ok) {
+        setNotification({ message: data.message || 'Operación exitosa', type: 'success' });
         setShowProductModal(false);
         setEditingProduct(null);
         fetchData();
+        setTimeout(() => setNotification(null), 3000);
+      } else {
+        setNotification({ message: data.error || 'Ocurrió un error', type: 'error' });
+        setTimeout(() => setNotification(null), 5000);
       }
     } catch (err) {
       console.error(err);
+      setNotification({ message: 'Error de conexión con el servidor', type: 'error' });
+      setTimeout(() => setNotification(null), 5000);
     }
   };
 
@@ -283,7 +292,19 @@ export default function Dashboard() {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Código de Barras</label>
               <div className="relative">
                 <Scan className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input name="barcode" defaultValue={editingProduct?.barcode} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-mono" placeholder="Escanea o escribe..." />
+                <input
+                  name="barcode"
+                  defaultValue={editingProduct?.barcode}
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-mono"
+                  placeholder="Escanea o escribe..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      // Zebra scanners often send Enter after barcode.
+                      // We prevent form submission and could move focus.
+                    }
+                  }}
+                />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -947,7 +968,16 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f8faf9] text-slate-900 font-sans">
+    <div className="flex min-h-screen bg-[#f8faf9] text-slate-900 font-sans relative">
+      {notification && (
+        <div className={cn(
+          "fixed top-4 right-4 z-[110] px-6 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-4 duration-300 flex items-center gap-3 border",
+          notification.type === 'success' ? "bg-emerald-500 text-white border-emerald-400" : "bg-rose-500 text-white border-rose-400"
+        )}>
+          {notification.type === 'success' ? <Save className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+          <p className="text-sm font-bold uppercase tracking-wider">{notification.message}</p>
+        </div>
+      )}
       {showProductModal && renderProductModal()}
 
       {/* Sidebar */}
