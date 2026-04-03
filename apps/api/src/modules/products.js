@@ -45,6 +45,7 @@ router.post('/', async (req, res) => {
   const { barcode, name, image, salePrice, costPrice, unit, categoryId, initialStock, locationId } = req.body;
   const productId = uuidv4();
   const locId = locationId || 'loc1';
+  const catId = categoryId && categoryId !== '' ? categoryId : null;
 
   try {
     await db.query('BEGIN');
@@ -52,7 +53,7 @@ router.post('/', async (req, res) => {
     await db.query(
       `INSERT INTO "Product" ("id", "barcode", "name", "image", "salePrice", "costPrice", "unit", "categoryId")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [productId, barcode, name, image, salePrice, costPrice, unit || 'pza', categoryId]
+      [productId, barcode, name, image, salePrice, costPrice, unit || 'pza', catId]
     );
 
     const invId = uuidv4();
@@ -63,7 +64,7 @@ router.post('/', async (req, res) => {
     );
 
     await db.query('COMMIT');
-    res.status(201).json({ id: productId, message: 'Producto creado' });
+    res.status(201).json({ id: productId, message: 'Producto creado exitosamente' });
   } catch (err) {
     await db.query('ROLLBACK');
     console.error(err);
@@ -75,6 +76,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { barcode, name, image, salePrice, costPrice, unit, categoryId, stock, locationId } = req.body;
+  const catId = categoryId && categoryId !== '' ? categoryId : null;
 
   try {
     await db.query('BEGIN');
@@ -83,7 +85,7 @@ router.put('/:id', async (req, res) => {
       `UPDATE "Product"
        SET "barcode" = $1, "name" = $2, "image" = $3, "salePrice" = $4, "costPrice" = $5, "unit" = $6, "categoryId" = $7, "updatedAt" = CURRENT_TIMESTAMP
        WHERE "id" = $8`,
-      [barcode, name, image, salePrice, costPrice, unit, categoryId, id]
+      [barcode, name, image, salePrice, costPrice, unit, catId, id]
     );
 
     if (stock !== undefined) {
@@ -97,7 +99,7 @@ router.put('/:id', async (req, res) => {
     }
 
     await db.query('COMMIT');
-    res.json({ message: 'Producto actualizado' });
+    res.json({ message: 'Producto actualizado exitosamente' });
   } catch (err) {
     await db.query('ROLLBACK');
     console.error(err);
