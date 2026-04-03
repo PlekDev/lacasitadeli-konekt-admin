@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   LayoutDashboard,
   Package,
@@ -31,7 +31,12 @@ import {
   ChevronDown,
   Download,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  X,
+  Edit,
+  Save,
+  Image as ImageIcon,
+  Scan
 } from 'lucide-react';
 import {
   AreaChart,
@@ -83,6 +88,7 @@ const BRANCH_DATA = [
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [inventoryView, setInventoryView] = useState<'list' | 'grid'>('list');
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
@@ -91,18 +97,39 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
+  // UI States
+  const [timeFilter, setTimeFilter] = useState('Hoy');
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [barcodeInput, setBarcodeInput] = useState('');
+
   // Cart for POS
   const [cart, setCart] = useState<any[]>([]);
+
+  const barcodeRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
     try {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
+
+      // Calculate start date based on timeFilter
+      let startDate = today;
+      if (timeFilter === 'Esta semana') {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        startDate = d.toISOString().split('T')[0];
+      } else if (timeFilter === 'Este mes') {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        startDate = d.toISOString().split('T')[0];
+      }
+
       const [prodRes, catRes, locRes, salesRes] = await Promise.all([
         fetch('/api/products?locationId=loc1').then(res => res.json()),
         fetch('/api/products/categories').then(res => res.json()),
         fetch('/api/locations').then(res => res.json()),
-        fetch(`/api/sales/report?date=${today}`).then(res => res.json())
+        fetch(`/api/sales/report?date=${startDate}`).then(res => res.json())
       ]);
 
       if (Array.isArray(prodRes)) setProducts(prodRes);
@@ -119,10 +146,26 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [timeFilter]);
+
+  // For Zebra scanning: handle 'Enter' key as scan completion
+  const handleBarcodeScan = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      const scanned = barcodeInput.trim();
+      if (scanned) {
+        // In Ventas, maybe add to cart automatically?
+        if (activeTab === 'Ventas') {
+          const product = products.find(p => p.barcode === scanned);
+          if (product) addToCart(product);
+        }
+        setBarcodeInput('');
+      }
+    }
+  };
 
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.barcode && p.barcode.includes(searchQuery))
   );
 
   const addToCart = (product: any) => {
@@ -173,6 +216,117 @@ export default function Dashboard() {
     }
   };
 
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const formData = new FormData(e.target as HTMLFormElement);
+    const productData = Object.fromEntries(formData.entries());
+
+    const method = editingProduct ? 'PUT' : 'POST';
+    const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...productData,
+          salePrice: parseFloat(productData.salePrice as string),
+          costPrice: parseFloat(productData.costPrice as string),
+          stock: parseFloat(productData.stock as string || '0'),
+          initialStock: parseFloat(productData.stock as string || '0'),
+        })
+      });
+      if (res.ok) {
+        setShowProductModal(false);
+        setEditingProduct(null);
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    if (!confirm('¿Seguro que deseas eliminar este producto?')) return;
+    try {
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openEditModal = (product: any) => {
+    setEditingProduct(product);
+    setShowProductModal(true);
+  };
+
+  const renderProductModal = () => (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Ingresa los detalles del artículo</p>
+          </div>
+          <button onClick={() => { setShowProductModal(false); setEditingProduct(null); }} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSaveProduct} className="p-8 space-y-5">
+          <div className="grid grid-cols-2 gap-5">
+            <div className="col-span-2 space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nombre del Producto</label>
+              <input name="name" defaultValue={editingProduct?.name} required className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-medium" placeholder="Ej: Queso Manchego 250g" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Código de Barras</label>
+              <div className="relative">
+                <Scan className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input name="barcode" defaultValue={editingProduct?.barcode} className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-mono" placeholder="Escanea o escribe..." />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Categoría</label>
+              <select name="categoryId" defaultValue={editingProduct?.categoryId || ''} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all appearance-none cursor-pointer">
+                <option value="">Seleccionar...</option>
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Precio Venta</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input name="salePrice" type="number" step="0.01" defaultValue={editingProduct?.salePrice} required className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-bold" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Costo</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
+                <input name="costPrice" type="number" step="0.01" defaultValue={editingProduct?.costPrice} required className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-bold" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock {editingProduct ? 'Actual' : 'Inicial'}</label>
+              <input name="stock" type="number" defaultValue={editingProduct?.stock || 0} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all font-bold" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">URL Imagen</label>
+              <input name="image" defaultValue={editingProduct?.image} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none transition-all" placeholder="https://..." />
+            </div>
+          </div>
+          <div className="pt-4 flex gap-3">
+            <button type="button" onClick={() => { setShowProductModal(false); setEditingProduct(null); }} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all uppercase tracking-wider">Cancelar</button>
+            <button type="submit" className="flex-2 py-3 bg-[#063b2a] text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-900/10 hover:bg-[#042b1f] active:scale-[0.98] transition-all uppercase tracking-wider px-12">Guardar Producto</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'Dashboard':
@@ -181,12 +335,12 @@ export default function Dashboard() {
             {/* Summary Cards */}
             <div className="grid grid-cols-6 gap-4">
               {[
-                { label: 'VENTAS', value: salesSummary?.totalVentas || '47', trend: '+12% vs ayer', icon: ShoppingCart, trendColor: 'text-emerald-500' },
-                { label: 'INGRESOS TOTALES', value: `$${(salesSummary?.totalIngresos || 28450).toLocaleString()}`, trend: '+8% vs ayer', icon: Wallet, trendColor: 'text-emerald-500' },
-                { label: 'TICKET PROMEDIO', value: `$${(salesSummary?.ticketPromedio || 605.32).toFixed(2)}`, icon: CreditCard },
-                { label: 'STOCK BAJO', value: products.filter(p => p.stock <= (p.minStock || 5)).length || '8', trend: 'Requieren atención', icon: AlertCircle, trendColor: 'text-amber-500' },
-                { label: 'SOBRESTOCK', value: '3', icon: Box },
-                { label: 'PRODUCTOS ACTIVOS', value: products.length || '142', icon: Box },
+                { label: 'VENTAS', value: salesSummary?.totalVentas || '0', trend: '+12% vs ayer', icon: ShoppingCart, trendColor: 'text-emerald-500' },
+                { label: 'INGRESOS TOTALES', value: `$${(salesSummary?.totalIngresos || 0).toLocaleString()}`, trend: '+8% vs ayer', icon: Wallet, trendColor: 'text-emerald-500' },
+                { label: 'TICKET PROMEDIO', value: `$${(salesSummary?.ticketPromedio || 0).toFixed(2)}`, icon: CreditCard },
+                { label: 'STOCK BAJO', value: products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).length || '0', trend: 'Requieren atención', icon: AlertCircle, trendColor: 'text-amber-500' },
+                { label: 'SOBRESTOCK', value: '0', icon: Box },
+                { label: 'PRODUCTOS ACTIVOS', value: products.length || '0', icon: Box },
               ].map((card, i) => (
                 <div key={i} className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-2">
@@ -324,20 +478,25 @@ export default function Dashboard() {
                     <tbody className="divide-y divide-slate-50">
                       {products.slice(0, 5).map((p, i) => (
                         <tr key={p.id || i} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-5 py-3 font-semibold text-slate-700">{p.name}</td>
-                          <td className="px-5 py-3 text-slate-500">{p.categoryName || 'General'}</td>
+                          <td className="px-5 py-3 font-semibold text-slate-700 flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-slate-100 flex items-center justify-center overflow-hidden">
+                               {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-slate-300" />}
+                            </div>
+                            {p.name}
+                          </td>
+                          <td className="px-5 py-3 text-slate-500">{p.category || 'General'}</td>
                           <td className="px-5 py-3 text-right font-bold text-slate-700">{p.stock}</td>
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-1.5">
                               <div className={cn(
                                 "w-1 h-1 rounded-full",
-                                p.stock > (p.minStock || 5) ? "bg-emerald-500" : "bg-amber-500"
+                                parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "bg-emerald-500" : "bg-amber-500"
                               )} />
                               <span className={cn(
                                 "font-bold uppercase text-[8px]",
-                                p.stock > (p.minStock || 5) ? "text-emerald-500" : "text-amber-500"
+                                parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "text-emerald-500" : "text-amber-500"
                               )}>
-                                {p.stock > (p.minStock || 5) ? "OK" : "Bajo"}
+                                {parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "OK" : "Bajo"}
                               </span>
                             </div>
                           </td>
@@ -378,11 +537,11 @@ export default function Dashboard() {
                   <div className="flex justify-between items-center mb-4">
                     <h4 className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">ALERTAS</h4>
                     <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
-                      {products.filter(p => p.stock <= (p.minStock || 5)).length}
+                      {products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).length}
                     </span>
                   </div>
                   <div className="space-y-3">
-                    {products.filter(p => p.stock <= (p.minStock || 5)).slice(0, 3).map(p => (
+                    {products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).slice(0, 3).map(p => (
                       <div key={p.id} className="flex flex-col gap-0.5">
                         <p className="text-[11px] font-bold text-slate-700">{p.name}</p>
                         <p className="text-[9px] text-slate-400">Solo quedan {p.stock} unidades (min: {p.minStock || 5})</p>
@@ -396,7 +555,7 @@ export default function Dashboard() {
         );
       case 'Inventario':
         return (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-full">
             <div className="p-6 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
               <div>
                 <h3 className="text-base font-bold text-slate-800">Inventario Global</h3>
@@ -407,21 +566,39 @@ export default function Dashboard() {
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Buscar producto por nombre o código..."
-                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:border-emerald-500 w-80 transition-all"
+                    placeholder="Buscar producto o código..."
+                    className="pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs outline-none focus:border-emerald-500 w-64 transition-all"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <button className="p-2 bg-slate-50 text-slate-400 border border-slate-100 rounded-xl hover:text-slate-600 transition-colors">
-                  <Filter className="w-4 h-4" />
+                <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100 mr-2">
+                  <button
+                    onClick={() => setInventoryView('list')}
+                    className={cn("p-1.5 rounded-lg transition-all", inventoryView === 'list' ? "bg-white shadow-sm text-emerald-600" : "text-slate-400 hover:text-slate-600")}
+                  >
+                    <Layers className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setInventoryView('grid')}
+                    className={cn("p-1.5 rounded-lg transition-all", inventoryView === 'grid' ? "bg-white shadow-sm text-emerald-600" : "text-slate-400 hover:text-slate-600")}
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                  </button>
+                </div>
+                <button onClick={fetchData} className="p-2 bg-slate-50 text-slate-400 border border-slate-100 rounded-xl hover:text-emerald-600 transition-colors">
+                  <RefreshCw className="w-4 h-4" />
                 </button>
-                <button className="bg-[#063b2a] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/10 hover:bg-[#042b1f] transition-all">
+                <button
+                  onClick={() => { setEditingProduct(null); setShowProductModal(true); }}
+                  className="bg-[#063b2a] text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-900/10 hover:bg-[#042b1f] transition-all"
+                >
                   <Plus className="w-4 h-4" /> Nuevo Producto
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto flex-1">
+              {inventoryView === 'list' ? (
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-400 font-black uppercase tracking-widest text-[9px] border-b border-slate-100">
                   <tr>
@@ -437,15 +614,25 @@ export default function Dashboard() {
                 <tbody className="divide-y divide-slate-50">
                   {filteredProducts.map((p, i) => (
                     <tr key={p.id || i} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4 font-bold text-slate-700">{p.name}</td>
+                      <td className="px-6 py-4 font-bold text-slate-700">
+                        <div className="flex items-center gap-4">
+                           <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-100">
+                              {p.image ? <img src={p.image} className="w-full h-full object-cover" /> : <ImageIcon className="w-5 h-5 text-slate-300" />}
+                           </div>
+                           <div>
+                              <p className="font-bold text-slate-800">{p.name}</p>
+                              <p className="text-[9px] text-slate-400 font-mono mt-0.5">{p.barcode || 'SIN CÓDIGO'}</p>
+                           </div>
+                        </div>
+                      </td>
                       <td className="px-6 py-4">
                         <span className="px-2 py-1 bg-slate-50 text-slate-500 rounded-lg text-[10px] font-bold">
-                          {p.categoryName || 'General'}
+                          {p.category || 'General'}
                         </span>
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">${p.salePrice}</td>
                       <td className="px-6 py-4 text-center">
-                        <span className={cn("font-black text-sm", p.stock > (p.minStock || 5) ? "text-slate-700" : "text-amber-600")}>
+                        <span className={cn("font-black text-sm", parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "text-slate-700" : "text-amber-600")}>
                           {p.stock}
                         </span>
                       </td>
@@ -454,23 +641,26 @@ export default function Dashboard() {
                         <div className="flex items-center gap-2">
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            p.stock > (p.minStock || 5) ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+                            parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
                           )} />
                           <span className={cn(
                             "font-black uppercase text-[9px] tracking-tight",
-                            p.stock > (p.minStock || 5) ? "text-emerald-500" : "text-amber-500"
+                            parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "text-emerald-500" : "text-amber-500"
                           )}>
-                            {p.stock > (p.minStock || 5) ? "Disponible" : "Bajo Stock"}
+                            {parseFloat(p.stock) > (parseFloat(p.minStock) || 5) ? "Disponible" : "Bajo Stock"}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors">
-                            <RefreshCw className="w-3.5 h-3.5" />
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => openEditModal(p)} className="p-2 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-colors">
+                            <Edit className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
-                            <MoreVertical className="w-3.5 h-3.5" />
+                          <button onClick={() => handleDeleteProduct(p.id)} className="p-2 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-600 transition-colors">
+                            <MoreVertical className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -478,6 +668,40 @@ export default function Dashboard() {
                   ))}
                 </tbody>
               </table>
+              ) : (
+                <div className="p-8 grid grid-cols-5 gap-6">
+                   {filteredProducts.map(p => (
+                     <div key={p.id} className="group bg-white border border-slate-100 rounded-2xl p-4 hover:shadow-xl hover:border-emerald-200 transition-all">
+                        <div className="aspect-square bg-slate-50 rounded-xl mb-4 overflow-hidden relative border border-slate-50">
+                           {p.image ? (
+                             <img src={p.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                           ) : (
+                             <ImageIcon className="w-10 h-10 text-slate-200 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                           )}
+                           <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => openEditModal(p)} className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-emerald-600 transition-colors">
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleDeleteProduct(p.id)} className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-600 hover:text-rose-600 transition-colors">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                           </div>
+                        </div>
+                        <div className="space-y-1">
+                           <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">{p.category || 'General'}</p>
+                           <h4 className="font-bold text-slate-800 line-clamp-1">{p.name}</h4>
+                           <div className="flex justify-between items-end pt-2">
+                              <div>
+                                 <p className="text-xs text-slate-400 font-medium">Existencia</p>
+                                 <p className={cn("text-sm font-black", parseFloat(p.stock) <= (parseFloat(p.minStock) || 5) ? "text-amber-500" : "text-slate-700")}>{p.stock} {p.unit || 'pz'}</p>
+                              </div>
+                              <p className="text-lg font-black text-[#063b2a]">${p.salePrice}</p>
+                           </div>
+                        </div>
+                     </div>
+                   ))}
+                </div>
+              )}
             </div>
             {filteredProducts.length === 0 && (
                <div className="py-20 flex flex-col items-center justify-center text-slate-300">
@@ -492,30 +716,48 @@ export default function Dashboard() {
           <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)]">
             <div className="col-span-8 flex flex-col gap-6">
               <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col min-h-0 flex-1">
-                <div className="relative mb-6">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar producto para vender..."
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-emerald-500 transition-all text-sm"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
+                <div className="flex gap-3 mb-6">
+                  <div className="relative flex-1">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o código de barras..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:border-emerald-500 transition-all text-sm"
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="relative w-48">
+                    <Scan className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" />
+                    <input
+                      ref={barcodeRef}
+                      type="text"
+                      placeholder="SCANNER..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-emerald-50 border border-emerald-100 rounded-xl outline-none focus:border-emerald-500 transition-all text-xs font-mono text-emerald-700"
+                      value={barcodeInput}
+                      onChange={e => setBarcodeInput(e.target.value)}
+                      onKeyDown={handleBarcodeScan}
+                      autoFocus
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-4 gap-4 overflow-y-auto pr-2">
+                <div className="grid grid-cols-4 gap-4 overflow-y-auto pr-2 pb-4">
                   {filteredProducts.map(p => (
                     <button
                       key={p.id}
-                      className="p-3 border border-slate-50 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all text-left space-y-2 bg-white group"
+                      className="p-3 border border-slate-100 rounded-xl hover:border-emerald-500 hover:shadow-md transition-all text-left space-y-2 bg-white group relative overflow-hidden"
                       onClick={() => addToCart(p)}
                     >
-                      <div className="w-full aspect-square bg-slate-50 rounded-lg flex items-center justify-center text-slate-200 group-hover:text-emerald-100 transition-colors">
-                        <Package className="w-8 h-8" />
+                      <div className="w-full aspect-square bg-slate-50 rounded-lg flex items-center justify-center text-slate-200 group-hover:text-emerald-100 transition-colors overflow-hidden">
+                        {p.image ? <img src={p.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform" /> : <Package className="w-8 h-8" />}
                       </div>
                       <p className="font-bold text-xs text-slate-700 line-clamp-1">{p.name}</p>
                       <div className="flex justify-between items-center">
-                        <p className="text-emerald-600 font-bold text-sm">${p.salePrice}</p>
-                        <p className="text-[9px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded">Stock: {p.stock}</p>
+                        <p className="text-emerald-600 font-black text-sm">${p.salePrice}</p>
+                        <p className="text-[9px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded font-bold">Stock: {p.stock}</p>
+                      </div>
+                      <div className="absolute top-2 right-2 p-1.5 bg-emerald-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity translate-y-1 group-hover:translate-y-0 duration-200">
+                        <Plus className="w-3.5 h-3.5" />
                       </div>
                     </button>
                   ))}
@@ -534,14 +776,17 @@ export default function Dashboard() {
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                   {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div key={item.id} className="flex justify-between items-center gap-3 p-2 rounded-lg hover:bg-slate-50 transition-colors group">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-700 truncate">{item.name}</p>
-                        <p className="text-[10px] text-slate-400">{item.quantity} x ${item.salePrice}</p>
+                        <div className="flex items-center gap-2">
+                           <p className="text-[10px] text-slate-400">{item.quantity} x ${item.salePrice}</p>
+                           {item.barcode && <span className="text-[8px] bg-slate-100 px-1 rounded text-slate-500 font-mono">{item.barcode}</span>}
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-xs text-slate-800">${(item.quantity * item.salePrice).toFixed(2)}</span>
-                        <button onClick={() => removeFromCart(item.id)} className="text-rose-500 p-1 hover:bg-rose-50 rounded-lg transition-colors">
+                        <button onClick={() => removeFromCart(item.id)} className="text-rose-400 p-1 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -550,17 +795,17 @@ export default function Dashboard() {
                   {cart.length === 0 && (
                     <div className="h-full flex flex-col items-center justify-center text-slate-300 py-12">
                       <ShoppingCart className="w-12 h-12 opacity-10 mb-2" />
-                      <p className="text-xs font-medium">El carrito está vacío</p>
+                      <p className="text-xs font-medium uppercase tracking-widest">El carrito está vacío</p>
                     </div>
                   )}
                 </div>
-                <div className="mt-6 pt-6 border-t border-slate-50 space-y-4">
+                <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center text-xs text-slate-500">
                       <span>Subtotal</span>
                       <span>${cart.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0).toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between items-center text-base font-bold text-slate-800">
+                    <div className="flex justify-between items-center text-lg font-black text-slate-900 bg-slate-50 p-3 rounded-xl border border-slate-100">
                       <span>Total</span>
                       <span>
                         ${cart.reduce((sum, item) => sum + (item.quantity * item.salePrice), 0).toFixed(2)}
@@ -568,7 +813,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <button
-                    className="w-full bg-[#063b2a] text-white py-3.5 rounded-xl font-bold shadow-lg shadow-emerald-900/10 hover:bg-[#042b1f] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100"
+                    className="w-full bg-[#063b2a] text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-900/10 hover:bg-[#042b1f] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 uppercase tracking-widest text-xs"
                     disabled={cart.length === 0}
                     onClick={submitSale}
                   >
@@ -653,12 +898,12 @@ export default function Dashboard() {
                 <p className="text-xs text-slate-500">Monitoreo de inventario crítico y notificaciones</p>
               </div>
               <div className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-xs font-bold border border-rose-100">
-                {products.filter(p => p.stock <= (p.minStock || 5)).length} Alertas Activas
+                {products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).length} Alertas Activas
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {products.filter(p => p.stock <= (p.minStock || 5)).map((p, i) => (
+              {products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).map((p, i) => (
                 <div key={p.id || i} className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex items-center gap-5 hover:border-rose-200 transition-all group">
                    <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner group-hover:scale-110 transition-transform">
                       <AlertCircle className="w-6 h-6" />
@@ -670,13 +915,13 @@ export default function Dashboard() {
                       </div>
                       <p className="text-xs text-slate-500 mt-1">El stock actual es de <span className="font-bold text-rose-600">{p.stock}</span> unidades, lo cual es inferior al mínimo configurado de <span className="font-bold">{p.minStock || 5}</span>.</p>
                    </div>
-                   <button className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all">
+                   <button onClick={() => openEditModal(p)} className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-all">
                       Reabastecer
                    </button>
                 </div>
               ))}
 
-              {products.filter(p => p.stock <= (p.minStock || 5)).length === 0 && (
+              {products.filter(p => parseFloat(p.stock) <= (parseFloat(p.minStock) || 5)).length === 0 && (
                  <div className="bg-emerald-50 p-12 rounded-xl border border-emerald-100 flex flex-col items-center justify-center text-emerald-600">
                     <Trophy className="w-12 h-12 mb-4 opacity-40" />
                     <p className="text-sm font-bold uppercase tracking-widest">¡Todo en orden!</p>
@@ -703,6 +948,8 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#f8faf9] text-slate-900 font-sans">
+      {showProductModal && renderProductModal()}
+
       {/* Sidebar */}
       <aside className="w-60 bg-[#042b1f] flex flex-col fixed inset-y-0 left-0 z-50">
         <div className="p-6">
@@ -727,7 +974,7 @@ export default function Dashboard() {
             ].map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => { setActiveTab(item.id); setSearchQuery(''); }}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs transition-all group",
                   activeTab === item.id
@@ -788,14 +1035,18 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg">
                {['Hoy', 'Esta semana', 'Este mes'].map((p, i) => (
-                 <button key={i} className={cn("px-3 py-1 rounded-md text-[10px] font-bold transition-all", i === 0 ? "bg-white shadow-sm text-slate-800" : "text-slate-400 hover:text-slate-600")}>
+                 <button
+                  key={i}
+                  onClick={() => setTimeFilter(p)}
+                  className={cn("px-3 py-1 rounded-md text-[10px] font-bold transition-all", timeFilter === p ? "bg-white shadow-sm text-slate-800" : "text-slate-400 hover:text-slate-600")}
+                 >
                    {p}
                  </button>
                ))}
             </div>
             <div className="h-6 w-px bg-slate-100 mx-1" />
             <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-lg text-[10px] font-bold text-slate-600 hover:bg-slate-50 transition-colors">
-              <span>Todas las sucursales</span>
+              <span>Matriz (Todas)</span>
               <ChevronDown className="w-3 h-3 opacity-30" />
             </button>
             <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 rounded-lg">
@@ -805,7 +1056,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="p-8 pb-12">
+        <div className="p-8 pb-12 overflow-y-auto">
           {loading ? (
             <div className="h-64 flex flex-col items-center justify-center gap-4">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-emerald-500 border-t-transparent"></div>

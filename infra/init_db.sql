@@ -49,6 +49,7 @@ CREATE TABLE "Product" (
     "id" VARCHAR(25) PRIMARY KEY,
     "barcode" VARCHAR(100),
     "name" VARCHAR(255) NOT NULL,
+    "image" TEXT,
     "salePrice" DECIMAL(12, 2) NOT NULL,
     "costPrice" DECIMAL(12, 2) DEFAULT 0,
     "unit" VARCHAR(20) DEFAULT 'pza',
@@ -66,7 +67,8 @@ CREATE TABLE "Inventory" (
     "quantity" DECIMAL(12, 3) DEFAULT 0,
     "minStock" DECIMAL(12, 3) DEFAULT 5,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE ("productId", "locationId")
 );
 
 -- CashSession Table
