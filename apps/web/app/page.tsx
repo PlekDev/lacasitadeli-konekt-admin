@@ -26,8 +26,6 @@ interface Product {
   description: string | null;
   costPrice: number;
   salePrice: number;
-  wholesalePrice: number | null;
-  wholesaleQuantity: number | null;
   stock: number;
   minStock: number;
   image: string | null;
@@ -177,14 +175,7 @@ export default function Dashboard() {
     }
   };
 
-  const getEffectivePrice = (item: Product & { quantity: number }) => {
-    if (item.wholesalePrice && item.wholesaleQuantity && item.quantity >= item.wholesaleQuantity) {
-      return item.wholesalePrice;
-    }
-    return item.salePrice;
-  };
-
-  const cartTotal = cart.reduce((s, i) => s + getEffectivePrice(i) * i.quantity, 0);
+  const cartTotal = cart.reduce((s, i) => s + i.salePrice * i.quantity, 0);
 
   const submitSale = async () => {
     if (!cart.length) return;
@@ -196,7 +187,7 @@ export default function Dashboard() {
           items: cart.map(i => ({
             productId:  i.id,
             quantity:   i.quantity,
-            unitPrice:  getEffectivePrice(i),
+            unitPrice:  i.salePrice,
           })),
           paymentMethod,
           canal: 'caja',
@@ -221,10 +212,9 @@ export default function Dashboard() {
     const body: Record<string, any> = {};
     fd.forEach((v, k) => { body[k] = v; });
 
-    ['salePrice', 'costPrice', 'wholesalePrice', 'stock', 'minStock'].forEach(f => {
+    ['salePrice', 'costPrice', 'stock', 'minStock'].forEach(f => {
       if (body[f] !== '') body[f] = parseFloat(body[f]);
     });
-    if (body.wholesaleQuantity !== '') body.wholesaleQuantity = parseInt(body.wholesaleQuantity);
     if (body.categoryId === '') body.categoryId = null;
     body.visibleWeb = fd.get('visibleWeb') === 'on';
 
@@ -313,24 +303,6 @@ export default function Dashboard() {
                   defaultValue={editingProduct?.salePrice} required
                   className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none font-bold" />
               </div>
-            </div>
-            {/* Precio Mayoreo */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Precio Mayoreo</label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm">$</span>
-                <input name="wholesalePrice" type="number" step="0.01" min="0"
-                  defaultValue={editingProduct?.wholesalePrice || ''}
-                  className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none font-bold text-emerald-600" />
-              </div>
-            </div>
-            {/* Cantidad Mayoreo */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cant. Mayoreo</label>
-              <input name="wholesaleQuantity" type="number" min="0"
-                defaultValue={editingProduct?.wholesaleQuantity || ''}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-emerald-500 outline-none font-bold text-emerald-600"
-                placeholder="Ej: 6" />
             </div>
             {/* Costo */}
             <div className="space-y-1">
@@ -717,15 +689,10 @@ export default function Dashboard() {
                     <div key={item.id} className="flex justify-between items-center gap-2 p-2 rounded-lg hover:bg-slate-50 group">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-700 truncate">{item.name}</p>
-                        <p className="text-[10px] text-slate-400">
-                          {item.quantity} × ${Number(getEffectivePrice(item)).toFixed(2)}
-                          {item.wholesalePrice && item.wholesaleQuantity && item.quantity >= item.wholesaleQuantity && (
-                            <span className="ml-2 text-emerald-600 font-bold text-[9px] uppercase">Mayoreo</span>
-                          )}
-                        </p>
+                        <p className="text-[10px] text-slate-400">{item.quantity} × ${Number(item.salePrice).toFixed(2)}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="font-bold text-xs text-slate-800">${(item.quantity * getEffectivePrice(item)).toFixed(2)}</span>
+                        <span className="font-bold text-xs text-slate-800">${(item.quantity * item.salePrice).toFixed(2)}</span>
                         <button onClick={() => setCart(c => c.filter(i => i.id !== item.id))}
                           className="text-rose-400 p-1 hover:bg-rose-50 rounded-lg">
                           <Trash2 className="w-3.5 h-3.5" />

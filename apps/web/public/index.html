@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Casita — Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --surface: #FFFFFF;
+    --border: #E8E4DE;
+    --text: #1A1714;
+    --text-2: #6B6560;
+    --text-3: #A39E99;
+    --accent: #E85D26;
+    --accent-2: #F5793A;
+    --green: #1A7A4A;
+    --green-bg: #E8F5EE;
+    --blue: #1A5FA8;
+    --blue-bg: #E8F0FA;
+    --purple: #6B35C7;
+    --purple-bg: #F0EBFA;
+    --red: #C7351A;
+    --red-bg: #FAE8E5;
+    --yellow: #B87000;
+    --yellow-bg: #FDF5E0;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow: 0 4px 12px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+    --shadow-lg: 0 16px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── LOGIN ─────────────────────────────── */
+  #login-screen {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1A1714 0%, #2D2520 100%);
+  }
+
+  .login-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 48px;
+    width: 400px;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .login-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .login-logo-icon {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+
+  .login-logo h1 { font-size: 22px; font-weight: 700; }
+  .login-logo p { font-size: 12px; color: var(--text-3); margin-top: 1px; }
+
+  .login-card h2 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .login-card p.sub { font-size: 13px; color: var(--text-2); margin-bottom: 28px; }
+
+  .admin-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--purple-bg); color: var(--purple);
+    font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 20px;
+    margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group label {
+    display: block; font-size: 12px; font-weight: 600;
+    color: var(--text-2); margin-bottom: 6px;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .form-group input, .form-group select {
+    width: 100%; padding: 11px 14px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: inherit;
+    background: var(--bg); color: var(--text);
+    transition: border-color 0.15s; outline: none;
+  }
+
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--accent); background: #fff;
+  }
+
+  .btn-primary {
+    width: 100%; padding: 13px;
+    background: var(--accent); color: white;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 15px; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: background 0.15s, transform 0.1s; margin-top: 8px;
+  }
+
+  .btn-primary:hover { background: var(--accent-2); }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .login-error {
+    background: var(--red-bg); color: var(--red);
+    padding: 10px 14px; border-radius: var(--radius-sm);
+    font-size: 13px; margin-top: 12px; display: none;
+  }
+
+  /* ─── MAIN APP ───────────────────────────── */
+  #app { display: none; height: 100vh; flex-direction: column; }
+
+  .topbar {
+    height: 56px; background: var(--text);
+    display: flex; align-items: center; padding: 0 20px; gap: 16px; flex-shrink: 0;
+  }
+
+  .topbar-logo { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+  .topbar-logo-icon {
+    width: 32px; height: 32px; background: var(--accent);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .topbar-logo span { color: #fff; font-weight: 700; font-size: 15px; }
+  .topbar-logo .admin-tag {
+    background: var(--purple); color: #fff;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em;
+  }
+
+  .topbar-nav { display: flex; gap: 4px; }
+
+  .nav-btn {
+    padding: 7px 14px; border-radius: 8px; border: none;
+    background: transparent; color: rgba(255,255,255,0.6);
+    font-size: 13px; font-weight: 500; font-family: inherit;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .nav-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .nav-btn.active { background: rgba(255,255,255,0.15); color: #fff; }
+
+  .topbar-info {
+    display: flex; align-items: center; gap: 12px;
+    padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.15);
+  }
+
+  .topbar-user { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500; }
+
+  .btn-logout {
+    padding: 6px 12px; background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7); border: none; border-radius: 6px;
+    font-size: 12px; font-family: inherit; cursor: pointer; transition: all 0.15s;
+  }
+
+  .btn-logout:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+  /* ─── CONTENT ─── */
+  .content-area { flex: 1; overflow: hidden; position: relative; }
+
+  .page { display: none; height: 100%; flex-direction: column; }
+  .page.active { display: flex; }
+
+  /* ─── PAGE HEADER ─── */
+  .page-header {
+    padding: 20px 24px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .page-header h2 { font-size: 20px; font-weight: 700; flex: 1; }
+
+  /* ─── DASHBOARD ─── */
+  #page-dashboard { overflow-y: auto; }
+  
+  .dashboard-content { padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  .dash-greeting {
+    background: linear-gradient(135deg, #1A1714 0%, #2D2520 100%);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .dash-greeting h3 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .dash-greeting p { font-size: 13px; color: rgba(255,255,255,0.6); }
+  .dash-greeting .date-display { font-family: 'DM Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.5); }
+
+  .metrics-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+  }
+
+  .metric-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+  }
+
+  .metric-card .m-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 10px; }
+  .metric-card .m-value { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .metric-card .m-value.accent { color: var(--accent); }
+  .metric-card .m-value.green { color: var(--green); }
+  .metric-card .m-value.blue { color: var(--blue); }
+  .metric-card .m-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+  .dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .dash-section {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  .dash-section-header {
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .dash-section-header h3 { font-size: 14px; font-weight: 700; }
+
+  .dash-table { width: 100%; border-collapse: collapse; }
+  .dash-table th {
+    padding: 9px 16px; text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .dash-table td {
+    padding: 10px 16px; font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dash-table tr:last-child td { border-bottom: none; }
+  .dash-table td.mono { font-family: 'DM Mono', monospace; font-weight: 600; }
+  .dash-table td.rank { color: var(--text-3); font-size: 12px; font-weight: 700; }
+
+  .stock-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+  }
+  .badge-ok { background: var(--green-bg); color: var(--green); }
+  .badge-low { background: var(--yellow-bg); color: var(--yellow); }
+  .badge-out { background: var(--red-bg); color: var(--red); }
+
+  /* ─── PRODUCTS PAGE ─── */
+  #page-products { overflow: hidden; }
+
+  .list-toolbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    flex: 1; max-width: 360px;
+    padding: 9px 14px 9px 38px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+    outline: none; transition: border-color 0.15s; position: relative;
+  }
+  .search-input:focus { border-color: var(--accent); background: #fff; }
+
+  .search-wrap { position: relative; flex: 1; max-width: 360px; }
+  .search-wrap .si { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 15px; pointer-events: none; }
+
+  .btn-add {
+    padding: 9px 18px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  }
+  .btn-add:hover { background: var(--accent-2); }
+
+  .filter-select {
+    padding: 9px 12px;
+    border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 13px; font-family: inherit; background: var(--bg); color: var(--text);
+    outline: none; cursor: pointer;
+  }
+
+  .list-area { flex: 1; overflow-y: auto; padding: 16px 24px; }
+
+  .data-table { width: 100%; border-collapse: collapse; }
+
+  .data-table th {
+    padding: 10px 14px; text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    position: sticky; top: 0; z-index: 1;
+  }
+
+  .data-table td {
+    padding: 12px 14px; font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .data-table tr:hover td { background: #FAFAF8; }
+  .data-table td.mono { font-family: 'DM Mono', monospace; font-weight: 600; }
+
+  .color-dot {
+    width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: middle;
+  }
+
+  .action-btns { display: flex; gap: 6px; }
+
+  .btn-edit {
+    padding: 5px 10px; border: 1.5px solid var(--border);
+    border-radius: 6px; font-size: 12px; font-weight: 600; font-family: inherit;
+    cursor: pointer; background: transparent; color: var(--text-2);
+    transition: all 0.15s;
+  }
+  .btn-edit:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+
+  .btn-del {
+    padding: 5px 10px; border: 1.5px solid var(--border);
+    border-radius: 6px; font-size: 12px; font-weight: 600; font-family: inherit;
+    cursor: pointer; background: transparent; color: var(--text-3);
+    transition: all 0.15s;
+  }
+  .btn-del:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+
+  .empty-row td {
+    text-align: center; padding: 48px; color: var(--text-3); font-size: 14px;
+  }
+
+  /* ─── CATEGORIES / LOCATIONS / USERS same list structure ─── */
+
+  /* ─── CORTE PAGE ─── */
+  #page-corte { overflow: hidden; }
+
+  .corte-content { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 20px; }
+
+  .corte-controls {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+
+  .date-input {
+    padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px;
+    font-family: 'DM Mono', monospace; color: var(--text);
+    background: var(--bg); outline: none; cursor: pointer;
+  }
+  .date-input:focus { border-color: var(--accent); }
+
+  .loc-select {
+    padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px;
+    font-family: inherit; color: var(--text);
+    background: var(--bg); outline: none;
+  }
+
+  .btn-refresh {
+    padding: 9px 16px; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer; color: var(--text-2);
+    background: var(--surface); transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }
+
+  .corte-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+
+  .corte-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 18px;
+  }
+
+  .corte-card .cc-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .corte-card .cc-value { font-size: 24px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .corte-card .cc-value.green { color: var(--green); }
+  .corte-card .cc-value.accent { color: var(--accent); }
+
+  .payment-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+
+  .pay-item {
+    padding: 18px; text-align: center;
+    border-right: 1px solid var(--border);
+  }
+  .pay-item:last-child { border-right: none; }
+  .pay-item .pi-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .pay-item .pi-value { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .pay-item .pi-value.green { color: var(--green); }
+  .pay-item .pi-value.blue { color: var(--blue); }
+  .pay-item .pi-value.purple { color: var(--purple); }
+
+  .report-section {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  .report-header {
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .report-header h3 { font-size: 14px; font-weight: 700; }
+
+  .report-table { width: 100%; border-collapse: collapse; }
+  .report-table th {
+    padding: 10px 16px; text-align: left;
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  .report-table td {
+    padding: 11px 16px; font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+  .report-table tr:last-child td { border-bottom: none; }
+  .report-table td.mono { font-family: 'DM Mono', monospace; font-weight: 600; }
+
+  .pay-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px;
+  }
+  .badge-efectivo { background: var(--green-bg); color: var(--green); }
+  .badge-tarjeta { background: var(--blue-bg); color: var(--blue); }
+  .badge-transferencia { background: var(--purple-bg); color: var(--purple); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(2px);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface); border-radius: 20px;
+    padding: 32px; width: 480px; max-width: 95vw;
+    box-shadow: var(--shadow-lg);
+    transform: scale(0.95) translateY(10px); transition: transform 0.2s;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .modal p.sub { font-size: 13px; color: var(--text-2); margin-bottom: 24px; }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-full { grid-column: 1/-1; }
+
+  .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+
+  .btn-cancel {
+    flex: 1; padding: 12px;
+    border: 1.5px solid var(--border); background: transparent;
+    border-radius: var(--radius-sm); font-size: 14px; font-weight: 600;
+    font-family: inherit; cursor: pointer; color: var(--text-2); transition: all 0.15s;
+  }
+  .btn-cancel:hover { border-color: var(--text-3); color: var(--text); }
+
+  .btn-confirm {
+    flex: 1; padding: 12px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-confirm:hover { background: var(--accent-2); }
+
+  /* ─── TOAST ─── */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text); color: #fff;
+    padding: 12px 20px; border-radius: 30px;
+    font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow-lg); z-index: 2000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  .loading { display: flex; align-items: center; justify-content: center; padding: 48px; color: var(--text-3); font-size: 14px; }
+
+  .section-divider { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; margin-top: 4px; }
+
+  /* color picker inside form */
+  .color-row { display: flex; align-items: center; gap: 10px; }
+  .color-row input[type=color] { width: 40px; height: 36px; border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; padding: 2px; background: var(--bg); }
+
+  /* ─── confirm delete modal ─── */
+  .danger-icon { width: 52px; height: 52px; background: var(--red-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 26px; margin-bottom: 16px; }
+
+  /* ─── USERS PAGE ─── */
+  .role-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px;
+  }
+  .role-admin { background: var(--purple-bg); color: var(--purple); }
+  .role-cajero { background: var(--blue-bg); color: var(--blue); }
+  .role-bodega { background: var(--yellow-bg); color: var(--yellow); }
+  
+  .active-badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 10px; }
+  .badge-active { background: var(--green-bg); color: var(--green); }
+  .badge-inactive { background: var(--border); color: var(--text-3); }
+
+  /* scrollbars */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🏪</div>
+      <div>
+        <h1>La Casita</h1>
+        <p>Panel de Administración</p>
+      </div>
+    </div>
+    <div class="admin-badge">⚙️ Acceso Admin</div>
+    <h2>Iniciar sesión</h2>
+    <p class="sub">Solo cuentas con rol de administrador</p>
+    <div class="form-group">
+      <label>Correo</label>
+      <input type="email" id="login-email" placeholder="admin@lacasita.com" value="admin@lacasita.com">
+    </div>
+    <div class="form-group">
+      <label>Contraseña</label>
+      <input type="password" id="login-password" placeholder="••••••••" value="admin123">
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Entrar al panel</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="topbar-logo-icon">🏪</div>
+      <span>La Casita</span>
+      <span class="admin-tag">Admin</span>
+    </div>
+    <div class="topbar-nav">
+      <button class="nav-btn active" onclick="showPage('dashboard')" id="nav-dashboard">📊 Dashboard</button>
+      <button class="nav-btn" onclick="showPage('products')" id="nav-products">📦 Productos</button>
+      <button class="nav-btn" onclick="showPage('categories')" id="nav-categories">🏷️ Categorías</button>
+      <button class="nav-btn" onclick="showPage('locations')" id="nav-locations">📍 Ubicaciones</button>
+      <button class="nav-btn" onclick="showPage('users')" id="nav-users">👤 Usuarios</button>
+      <button class="nav-btn" onclick="showPage('corte')" id="nav-corte">🧾 Corte del día</button>
+    </div>
+    <div class="topbar-info">
+      <span class="topbar-user" id="topbar-user"></span>
+      <button class="btn-logout" onclick="doLogout()">Salir</button>
+    </div>
+  </div>
+
+  <div class="content-area">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="dashboard-content">
+        <div class="dash-greeting">
+          <div>
+            <h3 id="dash-greeting-text">Buenos días 👋</h3>
+            <p>Resumen de operaciones del día de hoy</p>
+          </div>
+          <div class="date-display" id="dash-date"></div>
+        </div>
+        <div class="metrics-grid" id="dash-metrics">
+          <div class="metric-card"><div class="m-label">Ventas hoy</div><div class="m-value accent" id="dm-ventas">—</div><div class="m-sub">transacciones</div></div>
+          <div class="metric-card"><div class="m-label">Ingresos hoy</div><div class="m-value green" id="dm-ingresos">—</div><div class="m-sub">total cobrado</div></div>
+          <div class="metric-card"><div class="m-label">Ganancia est.</div><div class="m-value" id="dm-ganancia">—</div><div class="m-sub">precio venta − costo</div></div>
+          <div class="metric-card"><div class="m-label">Ticket promedio</div><div class="m-value blue" id="dm-ticket">—</div><div class="m-sub">por venta</div></div>
+        </div>
+        <div class="dash-grid">
+          <div class="dash-section">
+            <div class="dash-section-header"><h3>🏆 Top productos hoy</h3></div>
+            <table class="dash-table">
+              <thead><tr><th>#</th><th>Producto</th><th>Uds.</th><th>Ingresos</th></tr></thead>
+              <tbody id="dash-top-products"><tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-3);">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+          <div class="dash-section">
+            <div class="dash-section-header"><h3>⚠️ Stock bajo</h3></div>
+            <table class="dash-table">
+              <thead><tr><th>Producto</th><th>Ubicación</th><th>Stock</th></tr></thead>
+              <tbody id="dash-low-stock"><tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-3);">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="page" id="page-products">
+      <div class="page-header">
+        <h2>📦 Productos</h2>
+        <div style="font-size:13px;color:var(--text-3);" id="products-count"></div>
+      </div>
+      <div class="list-toolbar">
+        <div class="search-wrap">
+          <span class="si">🔍</span>
+          <input type="text" class="search-input" id="products-search" placeholder="Buscar producto o código..." oninput="filterProducts()">
+        </div>
+        <select class="filter-select" id="products-cat-filter" onchange="filterProducts()">
+          <option value="">Todas las categorías</option>
+        </select>
+        <button class="btn-add" onclick="openProductModal()">＋ Nuevo producto</button>
+      </div>
+      <div class="list-area">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Código</th><th>Nombre</th><th>Categoría</th>
+              <th>Precio venta</th><th>Costo</th><th>Unidad</th><th>Estado</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="products-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CATEGORIES -->
+    <div class="page" id="page-categories">
+      <div class="page-header">
+        <h2>🏷️ Categorías</h2>
+        <div style="font-size:13px;color:var(--text-3);" id="categories-count"></div>
+      </div>
+      <div class="list-toolbar">
+        <div class="search-wrap">
+          <span class="si">🔍</span>
+          <input type="text" class="search-input" id="categories-search" placeholder="Buscar categoría..." oninput="filterCategories()">
+        </div>
+        <button class="btn-add" onclick="openCategoryModal()">＋ Nueva categoría</button>
+      </div>
+      <div class="list-area">
+        <table class="data-table">
+          <thead>
+            <tr><th>Color</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="categories-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LOCATIONS -->
+    <div class="page" id="page-locations">
+      <div class="page-header">
+        <h2>📍 Ubicaciones</h2>
+        <div style="font-size:13px;color:var(--text-3);" id="locations-count"></div>
+      </div>
+      <div class="list-toolbar">
+        <div class="search-wrap">
+          <span class="si">🔍</span>
+          <input type="text" class="search-input" id="locations-search" placeholder="Buscar ubicación..." oninput="filterLocations()">
+        </div>
+        <button class="btn-add" onclick="openLocationModal()">＋ Nueva ubicación</button>
+      </div>
+      <div class="list-area">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nombre</th><th>Tipo</th><th>Dirección</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="locations-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="page" id="page-users">
+      <div class="page-header">
+        <h2>👤 Usuarios</h2>
+        <div style="font-size:13px;color:var(--text-3);" id="users-count"></div>
+      </div>
+      <div class="list-toolbar">
+        <div class="search-wrap">
+          <span class="si">🔍</span>
+          <input type="text" class="search-input" id="users-search" placeholder="Buscar usuario..." oninput="filterUsers()">
+        </div>
+        <button class="btn-add" onclick="openUserModal()">＋ Nuevo usuario</button>
+      </div>
+      <div class="list-area">
+        <table class="data-table">
+          <thead>
+            <tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CORTE DEL DÍA -->
+    <div class="page" id="page-corte">
+      <div class="page-header">
+        <h2>🧾 Corte del Día</h2>
+      </div>
+      <div class="corte-content">
+        <div class="corte-controls">
+          <input type="date" class="date-input" id="corte-date">
+          <select class="loc-select" id="corte-location">
+            <option value="">Todas las sucursales</option>
+          </select>
+          <button class="btn-refresh" onclick="loadCorte()">🔄 Actualizar</button>
+        </div>
+
+        <div class="corte-metrics" id="corte-metrics">
+          <div class="corte-card"><div class="cc-label">Total ventas</div><div class="cc-value accent" id="c-ventas">—</div></div>
+          <div class="corte-card"><div class="cc-label">Ingresos</div><div class="cc-value green" id="c-ingresos">—</div></div>
+          <div class="corte-card"><div class="cc-label">Ganancia estimada</div><div class="cc-value" id="c-ganancia">—</div></div>
+          <div class="corte-card"><div class="cc-label">Ticket promedio</div><div class="cc-value" id="c-ticket">—</div></div>
+        </div>
+
+        <div class="report-section">
+          <div class="report-header"><h3>💳 Por método de pago</h3></div>
+          <div class="payment-grid">
+            <div class="pay-item">
+              <div class="pi-label">💵 Efectivo</div>
+              <div class="pi-value green" id="c-efectivo">—</div>
+            </div>
+            <div class="pay-item">
+              <div class="pi-label">💳 Tarjeta</div>
+              <div class="pi-value blue" id="c-tarjeta">—</div>
+            </div>
+            <div class="pay-item">
+              <div class="pi-label">📲 Transferencia</div>
+              <div class="pi-value purple" id="c-transfer">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="report-section">
+          <div class="report-header"><h3>🏆 Productos más vendidos</h3></div>
+          <table class="report-table">
+            <thead><tr><th>#</th><th>Producto</th><th>Unidades</th><th>Ingresos</th></tr></thead>
+            <tbody id="corte-top"></tbody>
+          </table>
+        </div>
+
+        <div class="report-section">
+          <div class="report-header">
+            <h3>📋 Detalle de ventas</h3>
+            <span id="corte-ventas-count" style="font-size:12px;color:var(--text-3);"></span>
+          </div>
+          <table class="report-table">
+            <thead>
+              <tr><th>Folio</th><th>Hora</th><th>Cajero</th><th>Método</th><th>Productos</th><th>Total</th></tr>
+            </thead>
+            <tbody id="corte-ventas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- content-area -->
+</div><!-- app -->
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="product-modal">
+  <div class="modal">
+    <h3 id="pm-title">Nuevo producto</h3>
+    <p class="sub">Completa los datos del producto</p>
+    <div class="form-row">
+      <div class="form-group form-full">
+        <label>Nombre *</label>
+        <input type="text" id="pm-name" placeholder="Ej. Mantequilla de maní">
+      </div>
+      <div class="form-group">
+        <label>Código de barras / SKU</label>
+        <input type="text" id="pm-barcode" placeholder="Ej. 078742136776">
+      </div>
+      <div class="form-group">
+        <label>Unidad</label>
+        <select id="pm-unit">
+          <option value="pza">Pieza (pza)</option>
+          <option value="kg">Kilogramo (kg)</option>
+          <option value="lt">Litro (lt)</option>
+          <option value="caja">Caja</option>
+          <option value="paq">Paquete</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Precio de venta *</label>
+        <input type="number" id="pm-price" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group">
+        <label>Precio de costo</label>
+        <input type="number" id="pm-cost" placeholder="0.00" step="0.01" min="0">
+      </div>
+      <div class="form-group form-full">
+        <label>Categoría</label>
+        <select id="pm-category"></select>
+      </div>
+      <div class="form-group form-full">
+        <label>Estado</label>
+        <select id="pm-active">
+          <option value="1">Activo</option>
+          <option value="0">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <input type="hidden" id="pm-id">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('product-modal')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveProduct()">Guardar producto</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MODAL -->
+<div class="modal-overlay" id="category-modal">
+  <div class="modal">
+    <h3 id="cm-title">Nueva categoría</h3>
+    <p class="sub">Organiza tus productos por categorías</p>
+    <div class="form-group">
+      <label>Nombre *</label>
+      <input type="text" id="cm-name" placeholder="Ej. Lácteos">
+    </div>
+    <div class="form-group">
+      <label>Descripción</label>
+      <input type="text" id="cm-desc" placeholder="Descripción opcional">
+    </div>
+    <div class="form-group">
+      <label>Color de categoría</label>
+      <div class="color-row">
+        <input type="color" id="cm-color" value="#1A5FA8">
+        <span style="font-size:13px;color:var(--text-2);">Se usa para identificar visualmente en el POS</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="cm-active">
+        <option value="1">Activo</option>
+        <option value="0">Inactivo</option>
+      </select>
+    </div>
+    <input type="hidden" id="cm-id">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('category-modal')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveCategory()">Guardar categoría</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOCATION MODAL -->
+<div class="modal-overlay" id="location-modal">
+  <div class="modal">
+    <h3 id="lm-title">Nueva ubicación</h3>
+    <p class="sub">Sucursal, almacén o punto de venta</p>
+    <div class="form-group">
+      <label>Nombre *</label>
+      <input type="text" id="lm-name" placeholder="Ej. Casita Market">
+    </div>
+    <div class="form-group">
+      <label>Tipo</label>
+      <select id="lm-type">
+        <option value="tienda">🏪 Tienda</option>
+        <option value="almacen">🏭 Almacén / Bodega</option>
+        <option value="restaurante">🍽️ Restaurante / Bar</option>
+        <option value="ecommerce">🌐 Ecommerce</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Dirección</label>
+      <input type="text" id="lm-address" placeholder="Ej. Av. Patria 123, Zapopan">
+    </div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="lm-active">
+        <option value="1">Activo</option>
+        <option value="0">Inactivo</option>
+      </select>
+    </div>
+    <input type="hidden" id="lm-id">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('location-modal')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveLocation()">Guardar ubicación</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <h3 id="um-title">Nuevo usuario</h3>
+    <p class="sub">Agrega un cajero, bodeguero o administrador</p>
+    <div class="form-group">
+      <label>Nombre completo *</label>
+      <input type="text" id="um-name" placeholder="Ej. Ana García">
+    </div>
+    <div class="form-group">
+      <label>Correo electrónico *</label>
+      <input type="email" id="um-email" placeholder="cajero@lacasita.com">
+    </div>
+    <div class="form-group">
+      <label id="um-pass-label">Contraseña *</label>
+      <input type="password" id="um-password" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="form-group">
+      <label>Rol</label>
+      <select id="um-role">
+        <option value="cajero">Cajero</option>
+        <option value="bodega">Bodega</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="um-active">
+        <option value="1">Activo</option>
+        <option value="0">Inactivo</option>
+      </select>
+    </div>
+    <input type="hidden" id="um-id">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('user-modal')">Cancelar</button>
+      <button class="btn-confirm" onclick="saveUser()">Guardar usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="max-width:380px;">
+    <div class="danger-icon">🗑️</div>
+    <h3>¿Eliminar?</h3>
+    <p class="sub" id="delete-msg">Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal('delete-modal')">Cancelar</button>
+      <button class="btn-confirm" style="background:var(--red);" id="delete-confirm-btn">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+let state = {
+  user: null,
+  products: [], allProducts: [],
+  categories: [], allCategories: [],
+  locations: [], allLocations: [],
+  users: [], allUsers: [],
+  deleteCallback: null
+};
+
+// ─── INIT ─────────────────────────────────────────────────────────
+function setDashboardGreeting() {
+  const h = new Date().getHours();
+  const greeting = h < 12 ? 'Buenos días' : h < 19 ? 'Buenas tardes' : 'Buenas noches';
+  document.getElementById('dash-greeting-text').textContent = `${greeting} 👋`;
+  document.getElementById('dash-date').textContent = new Date().toLocaleDateString('es-MX', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+}
+
+function setCorteDate() {
+  document.getElementById('corte-date').value = new Date().toISOString().split('T')[0];
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const res = await apiFetch('/api/auth/login', 'POST', { email, password });
+    if (res.user.role !== 'admin') {
+      document.getElementById('login-error').style.display = 'block';
+      document.getElementById('login-error').textContent = 'Solo administradores pueden acceder a este panel';
+      return;
+    }
+    state.user = res.user;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('topbar-user').textContent = state.user.name;
+    setDashboardGreeting();
+    setCorteDate();
+    await Promise.all([loadDashboard(), loadCategories(), loadLocations()]);
+  } catch (e) {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('login-error').textContent = e.message || 'Error al iniciar sesión';
+  }
+}
+
+function doLogout() {
+  state.user = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ─── NAVIGATION ───────────────────────────────────────────────────
+async function showPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+  document.getElementById(`nav-${page}`).classList.add('active');
+
+  if (page === 'products') await loadProducts();
+  if (page === 'categories') renderCategoriesTable();
+  if (page === 'locations') renderLocationsTable();
+  if (page === 'users') await loadUsers();
+  if (page === 'corte') loadCorte();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const data = await apiFetch(`/api/sales/report?date=${today}`);
+    const s = data.summary;
+
+    document.getElementById('dm-ventas').textContent = s.totalVentas || 0;
+    document.getElementById('dm-ingresos').textContent = `$${(s.totalIngresos||0).toFixed(2)}`;
+    document.getElementById('dm-ganancia').textContent = `$${(s.gananciaEstimada||0).toFixed(2)}`;
+    document.getElementById('dm-ticket').textContent = `$${(s.ticketPromedio||0).toFixed(2)}`;
+
+    const topBody = document.getElementById('dash-top-products');
+    if (data.topProducts.length) {
+      topBody.innerHTML = data.topProducts.slice(0,5).map((p, i) => `
+        <tr>
+          <td class="rank">${i+1}</td>
+          <td>${p.name}</td>
+          <td class="mono">${p.unidadesVendidas}</td>
+          <td class="mono">$${(p.ingresos||0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+    } else {
+      topBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-3);">Sin ventas hoy</td></tr>`;
+    }
+
+    // Low stock from products
+    await loadLowStock();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadLowStock() {
+  try {
+    const prods = await apiFetch(`/api/products/search-all?q=`).catch(() => null);
+    // fallback: search all
+    const data = await apiFetch(`/api/products?locationId=`).catch(() => []);
+    const low = data.filter(p => p.stock <= (p.minStock || 5) && p.stock > 0).slice(0,6);
+    const out = data.filter(p => p.stock <= 0).slice(0,4);
+
+    const tbody = document.getElementById('dash-low-stock');
+    const rows = [...out.map(p => ({ ...p, cls: 'badge-out', label: 'Sin stock' })), ...low.map(p => ({ ...p, cls: 'badge-low', label: `${p.stock} uds` }))];
+
+    if (rows.length) {
+      tbody.innerHTML = rows.map(p => `
+        <tr>
+          <td>${p.name}</td>
+          <td style="font-size:11px;color:var(--text-3);">—</td>
+          <td><span class="stock-badge ${p.cls}">${p.label}</span></td>
+        </tr>
+      `).join('');
+    } else {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-3);">✅ Todo el stock está OK</td></tr>`;
+    }
+  } catch (e) {
+    document.getElementById('dash-low-stock').innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-3);">Sin datos</td></tr>`;
+  }
+}
+
+// ─── PRODUCTS ─────────────────────────────────────────────────────
+async function loadProducts() {
+  const locationId = state.locations[0]?.id || '';
+  const rows = await apiFetch(`/api/products?locationId=${locationId}`).catch(() => []);
+  state.allProducts = rows;
+  state.products = rows;
+
+  // Populate category filter
+  const catSel = document.getElementById('products-cat-filter');
+  catSel.innerHTML = '<option value="">Todas las categorías</option>' +
+    state.categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  renderProductsTable();
+}
+
+function filterProducts() {
+  const q = document.getElementById('products-search').value.toLowerCase();
+  const cat = document.getElementById('products-cat-filter').value;
+  state.products = state.allProducts.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q) || (p.barcode||'').toLowerCase().includes(q);
+    const matchCat = !cat || p.categoryId === cat;
+    return matchQ && matchCat;
+  });
+  renderProductsTable();
+}
+
+function renderProductsTable() {
+  const tbody = document.getElementById('products-tbody');
+  document.getElementById('products-count').textContent = `${state.products.length} productos`;
+
+  if (!state.products.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Sin productos que mostrar</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.products.map(p => `
+    <tr>
+      <td class="mono" style="color:var(--text-3);font-size:12px;">${p.barcode || '—'}</td>
+      <td><strong>${p.name}</strong></td>
+      <td>
+        ${p.categoryColor ? `<span class="color-dot" style="background:${p.categoryColor}"></span>` : ''}
+        ${p.category || '—'}
+      </td>
+      <td class="mono">$${(p.salePrice||0).toFixed(2)}</td>
+      <td class="mono" style="color:var(--text-3);">$${(p.costPrice||0).toFixed(2)}</td>
+      <td style="color:var(--text-3);">${p.unit || '—'}</td>
+      <td><span class="active-badge ${p.active!==0?'badge-active':'badge-inactive'}">${p.active!==0?'Activo':'Inactivo'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick='editProduct(${JSON.stringify(p)})'>Editar</button>
+          <button class="btn-del" onclick="confirmDelete('producto','${p.id}','${p.name.replace(/'/g,"\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openProductModal(product = null) {
+  document.getElementById('pm-title').textContent = product ? 'Editar producto' : 'Nuevo producto';
+  document.getElementById('pm-id').value = product?.id || '';
+  document.getElementById('pm-name').value = product?.name || '';
+  document.getElementById('pm-barcode').value = product?.barcode || '';
+  document.getElementById('pm-price').value = product?.salePrice || '';
+  document.getElementById('pm-cost').value = product?.costPrice || '';
+  document.getElementById('pm-active').value = product?.active !== 0 ? '1' : '0';
+
+  const unitSel = document.getElementById('pm-unit');
+  if (product?.unit) unitSel.value = product.unit;
+
+  const catSel = document.getElementById('pm-category');
+  catSel.innerHTML = '<option value="">Sin categoría</option>' +
+    state.categories.map(c => `<option value="${c.id}" ${c.id === product?.categoryId ? 'selected' : ''}>${c.name}</option>`).join('');
+
+  openModal('product-modal');
+}
+
+function editProduct(p) { openProductModal(p); }
+
+async function saveProduct() {
+  const id = document.getElementById('pm-id').value;
+  const name = document.getElementById('pm-name').value.trim();
+  const price = parseFloat(document.getElementById('pm-price').value);
+
+  if (!name || isNaN(price)) { showToast('Nombre y precio son obligatorios', 'error'); return; }
+
+  const body = {
+    name,
+    barcode: document.getElementById('pm-barcode').value.trim() || null,
+    salePrice: price,
+    costPrice: parseFloat(document.getElementById('pm-cost').value) || 0,
+    unit: document.getElementById('pm-unit').value,
+    categoryId: document.getElementById('pm-category').value || null,
+    active: parseInt(document.getElementById('pm-active').value)
+  };
+
+  try {
+    if (id) {
+      await apiFetch(`/api/admin/products/${id}`, 'PUT', body);
+      showToast('Producto actualizado ✓', 'success');
+    } else {
+      await apiFetch('/api/admin/products', 'POST', body);
+      showToast('Producto creado ✓', 'success');
+    }
+    closeModal('product-modal');
+    loadProducts();
+  } catch (e) {
+    showToast(e.message || 'Error al guardar', 'error');
+  }
+}
+
+// ─── CATEGORIES ───────────────────────────────────────────────────
+async function loadCategories() {
+  const rows = await apiFetch('/api/products/categories').catch(() => []);
+  // Also get inactive — use admin endpoint if available, fallback to public
+  state.allCategories = rows;
+  state.categories = rows;
+}
+
+function filterCategories() {
+  const q = document.getElementById('categories-search').value.toLowerCase();
+  state.categories = state.allCategories.filter(c => !q || c.name.toLowerCase().includes(q));
+  renderCategoriesTable();
+}
+
+function renderCategoriesTable() {
+  const tbody = document.getElementById('categories-tbody');
+  document.getElementById('categories-count').textContent = `${state.categories.length} categorías`;
+
+  if (!state.categories.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Sin categorías</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.categories.map(c => `
+    <tr>
+      <td><span style="display:inline-block;width:24px;height:24px;background:${c.color||'#ccc'};border-radius:6px;"></span></td>
+      <td><strong>${c.name}</strong></td>
+      <td style="color:var(--text-3);">${c.description || '—'}</td>
+      <td><span class="active-badge ${c.active!==0?'badge-active':'badge-inactive'}">${c.active!==0?'Activo':'Inactivo'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick='editCategory(${JSON.stringify(c)})'>Editar</button>
+          <button class="btn-del" onclick="confirmDelete('categoría','${c.id}','${c.name.replace(/'/g,"\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openCategoryModal(cat = null) {
+  document.getElementById('cm-title').textContent = cat ? 'Editar categoría' : 'Nueva categoría';
+  document.getElementById('cm-id').value = cat?.id || '';
+  document.getElementById('cm-name').value = cat?.name || '';
+  document.getElementById('cm-desc').value = cat?.description || '';
+  document.getElementById('cm-color').value = cat?.color || '#1A5FA8';
+  document.getElementById('cm-active').value = cat?.active !== 0 ? '1' : '0';
+  openModal('category-modal');
+}
+
+function editCategory(c) { openCategoryModal(c); }
+
+async function saveCategory() {
+  const id = document.getElementById('cm-id').value;
+  const name = document.getElementById('cm-name').value.trim();
+  if (!name) { showToast('El nombre es obligatorio', 'error'); return; }
+
+  const body = {
+    name,
+    description: document.getElementById('cm-desc').value.trim() || null,
+    color: document.getElementById('cm-color').value,
+    active: parseInt(document.getElementById('cm-active').value)
+  };
+
+  try {
+    if (id) {
+      await apiFetch(`/api/admin/categories/${id}`, 'PUT', body);
+      showToast('Categoría actualizada ✓', 'success');
+    } else {
+      await apiFetch('/api/admin/categories', 'POST', body);
+      showToast('Categoría creada ✓', 'success');
+    }
+    closeModal('category-modal');
+    await loadCategories();
+    renderCategoriesTable();
+  } catch (e) {
+    showToast(e.message || 'Error al guardar', 'error');
+  }
+}
+
+// ─── LOCATIONS ────────────────────────────────────────────────────
+async function loadLocations() {
+  const rows = await apiFetch('/api/locations').catch(() => []);
+  state.allLocations = rows;
+  state.locations = rows;
+
+  // Populate corte location select
+  const sel = document.getElementById('corte-location');
+  sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+    rows.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+}
+
+function filterLocations() {
+  const q = document.getElementById('locations-search').value.toLowerCase();
+  state.locations = state.allLocations.filter(l => !q || l.name.toLowerCase().includes(q) || (l.address||'').toLowerCase().includes(q));
+  renderLocationsTable();
+}
+
+function renderLocationsTable() {
+  const tbody = document.getElementById('locations-tbody');
+  document.getElementById('locations-count').textContent = `${state.locations.length} ubicaciones`;
+
+  const typeLabels = { tienda: '🏪 Tienda', almacen: '🏭 Almacén', restaurante: '🍽️ Restaurante', ecommerce: '🌐 Ecommerce' };
+
+  if (!state.locations.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Sin ubicaciones</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.locations.map(l => `
+    <tr>
+      <td><strong>${l.name}</strong></td>
+      <td>${typeLabels[l.type] || l.type || '—'}</td>
+      <td style="color:var(--text-3);">${l.address || '—'}</td>
+      <td><span class="active-badge ${l.active!==0?'badge-active':'badge-inactive'}">${l.active!==0?'Activo':'Inactivo'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick='editLocation(${JSON.stringify(l)})'>Editar</button>
+          <button class="btn-del" onclick="confirmDelete('ubicación','${l.id}','${l.name.replace(/'/g,"\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openLocationModal(loc = null) {
+  document.getElementById('lm-title').textContent = loc ? 'Editar ubicación' : 'Nueva ubicación';
+  document.getElementById('lm-id').value = loc?.id || '';
+  document.getElementById('lm-name').value = loc?.name || '';
+  document.getElementById('lm-type').value = loc?.type || 'tienda';
+  document.getElementById('lm-address').value = loc?.address || '';
+  document.getElementById('lm-active').value = loc?.active !== 0 ? '1' : '0';
+  openModal('location-modal');
+}
+
+function editLocation(l) { openLocationModal(l); }
+
+async function saveLocation() {
+  const id = document.getElementById('lm-id').value;
+  const name = document.getElementById('lm-name').value.trim();
+  if (!name) { showToast('El nombre es obligatorio', 'error'); return; }
+
+  const body = {
+    name,
+    type: document.getElementById('lm-type').value,
+    address: document.getElementById('lm-address').value.trim() || null,
+    active: parseInt(document.getElementById('lm-active').value)
+  };
+
+  try {
+    if (id) {
+      await apiFetch(`/api/admin/locations/${id}`, 'PUT', body);
+      showToast('Ubicación actualizada ✓', 'success');
+    } else {
+      await apiFetch('/api/admin/locations', 'POST', body);
+      showToast('Ubicación creada ✓', 'success');
+    }
+    closeModal('location-modal');
+    await loadLocations();
+    renderLocationsTable();
+  } catch (e) {
+    showToast(e.message || 'Error al guardar', 'error');
+  }
+}
+
+// ─── USERS ────────────────────────────────────────────────────────
+async function loadUsers() {
+  const rows = await apiFetch('/api/admin/users').catch(() => []);
+  state.allUsers = rows;
+  state.users = rows;
+  renderUsersTable();
+}
+
+function filterUsers() {
+  const q = document.getElementById('users-search').value.toLowerCase();
+  state.users = state.allUsers.filter(u => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
+  renderUsersTable();
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('users-tbody');
+  document.getElementById('users-count').textContent = `${state.users.length} usuarios`;
+
+  const roleBadge = { admin: 'role-admin', cajero: 'role-cajero', bodega: 'role-bodega' };
+  const roleLabel = { admin: '⚙️ Admin', cajero: '💵 Cajero', bodega: '📦 Bodega' };
+
+  if (!state.users.length) {
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="5">Sin usuarios</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = state.users.map(u => `
+    <tr>
+      <td><strong>${u.name}</strong></td>
+      <td style="color:var(--text-2);font-family:'DM Mono',monospace;font-size:12px;">${u.email}</td>
+      <td><span class="role-badge ${roleBadge[u.role]||'role-cajero'}">${roleLabel[u.role]||u.role}</span></td>
+      <td><span class="active-badge ${u.active!==0?'badge-active':'badge-inactive'}">${u.active!==0?'Activo':'Inactivo'}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-edit" onclick='editUser(${JSON.stringify(u)})'>Editar</button>
+          <button class="btn-del" onclick="confirmDelete('usuario','${u.id}','${u.name.replace(/'/g,"\\'")}')">Eliminar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openUserModal(user = null) {
+  document.getElementById('um-title').textContent = user ? 'Editar usuario' : 'Nuevo usuario';
+  document.getElementById('um-id').value = user?.id || '';
+  document.getElementById('um-name').value = user?.name || '';
+  document.getElementById('um-email').value = user?.email || '';
+  document.getElementById('um-password').value = '';
+  document.getElementById('um-role').value = user?.role || 'cajero';
+  document.getElementById('um-active').value = user?.active !== 0 ? '1' : '0';
+  document.getElementById('um-pass-label').textContent = user ? 'Nueva contraseña (dejar vacío para no cambiar)' : 'Contraseña *';
+  openModal('user-modal');
+}
+
+function editUser(u) { openUserModal(u); }
+
+async function saveUser() {
+  const id = document.getElementById('um-id').value;
+  const name = document.getElementById('um-name').value.trim();
+  const email = document.getElementById('um-email').value.trim();
+  const password = document.getElementById('um-password').value;
+
+  if (!name || !email) { showToast('Nombre y correo son obligatorios', 'error'); return; }
+  if (!id && !password) { showToast('La contraseña es obligatoria para nuevos usuarios', 'error'); return; }
+
+  const body = {
+    name, email,
+    role: document.getElementById('um-role').value,
+    active: parseInt(document.getElementById('um-active').value)
+  };
+  if (password) body.password = password;
+
+  try {
+    if (id) {
+      await apiFetch(`/api/admin/users/${id}`, 'PUT', body);
+      showToast('Usuario actualizado ✓', 'success');
+    } else {
+      await apiFetch('/api/admin/users', 'POST', body);
+      showToast('Usuario creado ✓', 'success');
+    }
+    closeModal('user-modal');
+    loadUsers();
+  } catch (e) {
+    showToast(e.message || 'Error al guardar', 'error');
+  }
+}
+
+// ─── DELETE ───────────────────────────────────────────────────────
+function confirmDelete(type, id, name) {
+  document.getElementById('delete-msg').textContent = `¿Eliminar ${type} "${name}"? Esta acción no se puede deshacer.`;
+  state.deleteCallback = async () => {
+    try {
+      const endpointMap = { producto: 'products', categoría: 'categories', ubicación: 'locations', usuario: 'users' };
+      const endpoint = endpointMap[type];
+      await apiFetch(`/api/admin/${endpoint}/${id}`, 'DELETE');
+      showToast(`${type.charAt(0).toUpperCase()+type.slice(1)} eliminado ✓`, 'success');
+      closeModal('delete-modal');
+      if (type === 'producto') loadProducts();
+      if (type === 'categoría') { await loadCategories(); renderCategoriesTable(); }
+      if (type === 'ubicación') { await loadLocations(); renderLocationsTable(); }
+      if (type === 'usuario') loadUsers();
+    } catch (e) {
+      showToast(e.message || 'Error al eliminar', 'error');
+    }
+  };
+  openModal('delete-modal');
+}
+
+document.getElementById('delete-confirm-btn').onclick = () => {
+  if (state.deleteCallback) state.deleteCallback();
+};
+
+// ─── CORTE ────────────────────────────────────────────────────────
+async function loadCorte() {
+  const date = document.getElementById('corte-date').value;
+  const locationId = document.getElementById('corte-location').value;
+
+  const params = new URLSearchParams({ date });
+  if (locationId) params.append('locationId', locationId);
+
+  try {
+    const data = await apiFetch(`/api/sales/report?${params}`);
+    const s = data.summary;
+
+    document.getElementById('c-ventas').textContent = s.totalVentas || 0;
+    document.getElementById('c-ingresos').textContent = `$${(s.totalIngresos||0).toFixed(2)}`;
+    document.getElementById('c-ganancia').textContent = `$${(s.gananciaEstimada||0).toFixed(2)}`;
+    document.getElementById('c-ticket').textContent = `$${(s.ticketPromedio||0).toFixed(2)}`;
+    document.getElementById('c-efectivo').textContent = `$${(s.totalEfectivo||0).toFixed(2)}`;
+    document.getElementById('c-tarjeta').textContent = `$${(s.totalTarjeta||0).toFixed(2)}`;
+    document.getElementById('c-transfer').textContent = `$${(s.totalTransferencia||0).toFixed(2)}`;
+
+    // Top products
+    const topBody = document.getElementById('corte-top');
+    if (data.topProducts.length) {
+      topBody.innerHTML = data.topProducts.map((p, i) => `
+        <tr>
+          <td style="color:var(--text-3);font-weight:700;">${i+1}</td>
+          <td>${p.name}</td>
+          <td class="mono">${p.unidadesVendidas} ${p.unit||'pza'}</td>
+          <td class="mono">$${(p.ingresos||0).toFixed(2)}</td>
+        </tr>
+      `).join('');
+    } else {
+      topBody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-3);">Sin ventas en este período</td></tr>`;
+    }
+
+    // Sales detail
+    document.getElementById('corte-ventas-count').textContent = `${data.ventas.length} registros`;
+    const ventasBody = document.getElementById('corte-ventas');
+    if (data.ventas.length) {
+      ventasBody.innerHTML = data.ventas.map(v => {
+        const time = new Date(v.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <tr>
+            <td class="mono" style="color:var(--text-2);">${v.invoiceNumber}</td>
+            <td>${time}</td>
+            <td>${v.cajero || '—'}</td>
+            <td><span class="pay-badge badge-${v.paymentMethod}">${v.paymentMethod}</span></td>
+            <td style="color:var(--text-3);">${v.numProductos}</td>
+            <td class="mono">$${v.total.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      ventasBody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3);">Sin ventas en este período</td></tr>`;
+    }
+  } catch (e) {
+    showToast('Error al cargar corte', 'error');
+  }
+}
+
+// ─── UTILITIES ────────────────────────────────────────────────────
+async function apiFetch(url, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + url, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Error ${res.status}`);
+  }
+  return res.json();
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast${type ? ' '+type : ''} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); });
+});
+
+// Enter to login
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
