@@ -3,175 +3,194 @@ const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const router = express.Router();
 
-// POST /api/sales - create a new sale
+// POST /api/sales  — registrar venta usando la función registrar_venta() del schema
 router.post('/', async (req, res) => {
-  const { locationId, cashierId, sessionId, items, paymentMethod, cashReceived, notes } = req.body;
+  const { items, paymentMethod, notes, userId, canal } = req.body;
 
-  const finalLocationId = locationId || 'loc1';
-  const finalCashierId = cashierId || 'user1';
-
-  if (!items || items.length === 0) {
+  if (!items || !items.length) {
     return res.status(400).json({ error: 'La venta debe tener al menos un producto' });
   }
 
-  // Calculate totals
-  let subtotal = 0;
-  items.forEach(item => { subtotal += item.unitPrice * item.quantity; });
-  const total = subtotal;
-  const change = paymentMethod === 'efectivo' && cashReceived ? cashReceived - total : null;
-
-  const client = await db.getPool().connect();
+  // Generar folio automático
+  let folio;
+  try {
+    const lastRes = await db.query(
+      `SELECT folio FROM ventas WHERE canal = $1 ORDER BY created_at DESC LIMIT 1`,
+      [canal || 'caja']
+    );
+    if (lastRes.rows.length) {
+      const match = lastRes.rows[0].folio.match(/\d+$/);
+      const num = match ? parseInt(match[0]) + 1 : 1;
+      folio = `${(canal || 'CAJA').toUpperCase()}-${String(num).padStart(6, '0')}`;
+    } else {
+      folio = `${(canal || 'CAJA').toUpperCase()}-000001`;
+    }
+  } catch {
+    folio = `${(canal || 'CAJA').toUpperCase()}-${Date.now()}`;
+  }
 
   try {
-    await client.query('BEGIN');
+    // Usar la función atómica del schema
+    const itemsJson = JSON.stringify(
+      items.map(i => ({
+        producto_id: i.productId,
+        cantidad: i.quantity,
+        precio_unitario: i.unitPrice,
+      }))
+    );
 
-    // Get next invoice number
-    const lastSaleRes = await client.query(`
-      SELECT "invoiceNumber" FROM "Sale"
-      WHERE "locationId" = $1
-      ORDER BY "createdAt" DESC LIMIT 1
-    `, [finalLocationId]);
+    const result = await db.query(
+      `SELECT registrar_venta($1, $2, $3, $4, $5::jsonb) AS venta_id`,
+      [folio, canal || 'caja', userId || null, paymentMethod || 'efectivo', itemsJson]
+    );
 
-    const lastSale = lastSaleRes.rows[0];
-    let nextNum = 1;
-    if (lastSale) {
-      const match = lastSale.invoiceNumber.match(/\d+/);
-      if (match) nextNum = parseInt(match[0]) + 1;
-    }
-    const invoiceNumber = `F${String(nextNum).padStart(4, '0')}`;
+    const ventaId = result.rows[0].venta_id;
 
-    const saleId = uuidv4().replace(/-/g, '').substring(0, 25);
-    const now = new Date();
-
-    // Insert sale
-    await client.query(`
-      INSERT INTO "Sale" ("id", "invoiceNumber", "locationId", "cashierId", "sessionId", "subtotal", "tax", "discount", "total", "paymentMethod", "cashReceived", "change", "status", "notes", "createdAt", "updatedAt")
-      VALUES ($1, $2, $3, $4, $5, $6, 0, 0, $7, $8, $9, $10, 'completada', $11, $12, $12)
-    `, [saleId, invoiceNumber, finalLocationId, finalCashierId, sessionId || null, subtotal, total, paymentMethod, cashReceived || null, change, notes || null, now]);
-
-    // Insert items and update inventory
-    for (const item of items) {
-      const itemId = uuidv4().replace(/-/g, '').substring(0, 25);
-      const subtotalItem = item.unitPrice * item.quantity;
-
-      await client.query(`
-        INSERT INTO "SaleItem" ("id", "saleId", "productId", "quantity", "unitPrice", "costPrice", "discount", "subtotal", "createdAt")
-        VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8)
-      `, [itemId, saleId, item.productId, item.quantity, item.unitPrice, item.costPrice || 0, subtotalItem, now]);
-
-      // Decrease inventory at the sale location
-      const invRes = await client.query(`
-        SELECT "id", "quantity" FROM "Inventory" WHERE "productId" = $1 AND "locationId" = $2
-      `, [item.productId, finalLocationId]);
-
-      const inv = invRes.rows[0];
-      if (inv) {
-        await client.query(`
-          UPDATE "Inventory" SET "quantity" = GREATEST(0, "quantity" - $1), "updatedAt" = $2 WHERE "id" = $3
-        `, [item.quantity, now, inv.id]);
-      }
+    // Agregar notas si hay
+    if (notes) {
+      await db.query(`UPDATE ventas SET notas = $1 WHERE id = $2`, [notes, ventaId]);
     }
 
-    // Update cash session totals if session exists
-    if (sessionId) {
-      const amountByMethod = {
-        efectivo: paymentMethod === 'efectivo' ? total : 0,
-        tarjeta: paymentMethod === 'tarjeta' ? total : 0,
-        transferencia: paymentMethod === 'transferencia' ? total : 0,
-      };
-      await client.query(`
-        UPDATE "CashSession" SET
-          "totalSales" = "totalSales" + $1,
-          "totalCash" = "totalCash" + $2,
-          "totalCard" = "totalCard" + $3,
-          "totalTransfer" = "totalTransfer" + $4,
-          "totalItems" = "totalItems" + $5,
-          "updatedAt" = $6
-        WHERE "id" = $7
-      `, [total, amountByMethod.efectivo, amountByMethod.tarjeta, amountByMethod.transferencia, items.reduce((a, b) => a + b.quantity, 0), now, sessionId]);
-    }
+    // Obtener total de la venta
+    const ventaRes = await db.query(`SELECT total, folio FROM ventas WHERE id = $1`, [ventaId]);
+    const venta = ventaRes.rows[0];
 
-    await client.query('COMMIT');
-    res.json({ success: true, saleId, invoiceNumber, total, change });
+    res.json({
+      success: true,
+      ventaId,
+      folio: venta.folio,
+      total: venta.total,
+    });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error(err);
-    res.status(500).json({ error: 'Error al procesar la venta' });
-  } finally {
-    client.release();
+    console.error('Error al procesar venta:', err.message);
+    res.status(400).json({ error: err.message || 'Error al procesar la venta' });
   }
 });
 
-// GET /api/sales/report - daily sales report
+// GET /api/sales/report  — reporte diario usando vista_ventas_diarias
 router.get('/report', async (req, res) => {
-  const { date, locationId } = req.query;
+  const { date, canal } = req.query;
 
-  // Build date range
   let startTs, endTs;
   if (date) {
-    const d = new Date(date);
-    d.setHours(0, 0, 0, 0);
-    startTs = d.toISOString();
-    const dend = new Date(d);
-    dend.setHours(23, 59, 59, 999);
-    endTs = dend.toISOString();
+    startTs = `${date} 00:00:00`;
+    endTs   = `${date} 23:59:59`;
   } else {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    startTs = today.toISOString();
-    const todayEnd = new Date(today);
-    todayEnd.setHours(23, 59, 59, 999);
-    endTs = todayEnd.toISOString();
+    const today = new Date().toISOString().split('T')[0];
+    startTs = `${today} 00:00:00`;
+    endTs   = `${today} 23:59:59`;
   }
 
   try {
-    let where = `WHERE s."createdAt" >= $1 AND s."createdAt" <= $2 AND s."status" = 'completada'`;
     const params = [startTs, endTs];
-
-    if (locationId) {
-      where += ` AND s."locationId" = $3`;
-      params.push(locationId);
+    let canalFilter = '';
+    if (canal) {
+      params.push(canal);
+      canalFilter = `AND v.canal = $${params.length}`;
     }
 
+    // Resumen general
     const summaryRes = await db.query(`
-      SELECT 
-        COUNT(*)::int AS "totalVentas",
-        COALESCE(SUM(s."total"), 0)::float AS "totalIngresos",
-        COALESCE(SUM(s."total" - COALESCE((SELECT SUM(si2."costPrice" * si2."quantity") FROM "SaleItem" si2 WHERE si2."saleId" = s."id"), 0)), 0)::float AS "gananciaEstimada",
-        COALESCE(AVG(s."total"), 0)::float AS "ticketPromedio",
-        COALESCE(SUM(CASE WHEN s."paymentMethod" = 'efectivo' THEN s."total" ELSE 0 END), 0)::float AS "totalEfectivo",
-        COALESCE(SUM(CASE WHEN s."paymentMethod" = 'tarjeta' THEN s."total" ELSE 0 END), 0)::float AS "totalTarjeta",
-        COALESCE(SUM(CASE WHEN s."paymentMethod" = 'transferencia' THEN s."total" ELSE 0 END), 0)::float AS "totalTransferencia"
-      FROM "Sale" s ${where}
+      SELECT
+        COUNT(*)::int                                                   AS "totalVentas",
+        COALESCE(SUM(v.total), 0)::float                               AS "totalIngresos",
+        COALESCE(AVG(v.total), 0)::float                               AS "ticketPromedio",
+        COALESCE(SUM(CASE WHEN v.metodo_pago = 'efectivo'      THEN v.total ELSE 0 END), 0)::float AS "totalEfectivo",
+        COALESCE(SUM(CASE WHEN v.metodo_pago = 'tarjeta'       THEN v.total ELSE 0 END), 0)::float AS "totalTarjeta",
+        COALESCE(SUM(CASE WHEN v.metodo_pago = 'transferencia' THEN v.total ELSE 0 END), 0)::float AS "totalTransferencia",
+        COALESCE(SUM(v.total) - SUM(COALESCE((
+          SELECT SUM(dv.cantidad * p.precio_compra)
+          FROM detalle_venta dv
+          JOIN productos p ON p.id = dv.producto_id
+          WHERE dv.venta_id = v.id
+        ), 0)), 0)::float AS "gananciaEstimada"
+      FROM ventas v
+      WHERE v.estado = 'completada'
+        AND v.created_at BETWEEN $1 AND $2
+        ${canalFilter}
     `, params);
 
-    // Top products
+    // Top productos
     const topProductsRes = await db.query(`
-      SELECT p."name", p."unit", SUM(si."quantity")::float AS "unidadesVendidas", SUM(si."subtotal")::float AS ingresos
-      FROM "SaleItem" si
-      JOIN "Sale" s ON si."saleId" = s."id"
-      JOIN "Product" p ON si."productId" = p."id"
-      ${where}
-      GROUP BY si."productId", p."name", p."unit"
+      SELECT
+        dv.nombre_producto       AS name,
+        SUM(dv.cantidad)::float  AS "unidadesVendidas",
+        SUM(dv.subtotal)::float  AS ingresos
+      FROM detalle_venta dv
+      JOIN ventas v ON v.id = dv.venta_id
+      WHERE v.estado = 'completada'
+        AND v.created_at BETWEEN $1 AND $2
+        ${canalFilter}
+      GROUP BY dv.nombre_producto
       ORDER BY "unidadesVendidas" DESC
       LIMIT 10
     `, params);
 
-    // Sale detail
+    // Detalle de ventas
     const ventasRes = await db.query(`
-      SELECT s."id", s."invoiceNumber" AS "invoiceNumber", s."total"::float, s."paymentMethod" AS "paymentMethod", s."createdAt" AS "createdAt",
-             u."name" AS cajero,
-             (SELECT COUNT(*) FROM "SaleItem" si WHERE si."saleId" = s."id")::int AS "numProductos"
-      FROM "Sale" s
-      LEFT JOIN "User" u ON s."cashierId" = u."id"
-      ${where}
-      ORDER BY s."createdAt" DESC
+      SELECT
+        v.id,
+        v.folio           AS "invoiceNumber",
+        v.total::float,
+        v.metodo_pago     AS "paymentMethod",
+        v.canal,
+        v.estado,
+        v.created_at      AS "createdAt",
+        u.nombre          AS cajero,
+        (SELECT COUNT(*) FROM detalle_venta dv WHERE dv.venta_id = v.id)::int AS "numProductos"
+      FROM ventas v
+      LEFT JOIN usuarios u ON u.id = v.usuario_id
+      WHERE v.estado = 'completada'
+        AND v.created_at BETWEEN $1 AND $2
+        ${canalFilter}
+      ORDER BY v.created_at DESC
     `, params);
 
-    res.json({ summary: summaryRes.rows[0], topProducts: topProductsRes.rows, ventas: ventasRes.rows });
+    res.json({
+      summary:     summaryRes.rows[0],
+      topProducts: topProductsRes.rows,
+      ventas:      ventasRes.rows,
+    });
   } catch (err) {
-    console.error(err);
+    console.error('Error al generar reporte:', err.message);
     res.status(500).json({ error: 'Error al generar reporte' });
+  }
+});
+
+// GET /api/sales/:id  — detalle de una venta
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const ventaRes = await db.query(
+      `SELECT v.*, u.nombre AS cajero
+       FROM ventas v
+       LEFT JOIN usuarios u ON u.id = v.usuario_id
+       WHERE v.id = $1`, [id]
+    );
+    if (!ventaRes.rows.length) return res.status(404).json({ error: 'Venta no encontrada' });
+
+    const detalleRes = await db.query(
+      `SELECT * FROM detalle_venta WHERE venta_id = $1 ORDER BY id`, [id]
+    );
+
+    res.json({ venta: ventaRes.rows[0], detalle: detalleRes.rows });
+  } catch (err) {
+    console.error('Error al obtener venta:', err.message);
+    res.status(500).json({ error: 'Error al obtener venta' });
+  }
+});
+
+// PATCH /api/sales/:id/cancel  — cancelar venta
+router.patch('/:id/cancel', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query(
+      `UPDATE ventas SET estado = 'cancelada' WHERE id = $1`, [id]
+    );
+    res.json({ message: 'Venta cancelada' });
+  } catch (err) {
+    console.error('Error al cancelar venta:', err.message);
+    res.status(500).json({ error: 'Error al cancelar venta' });
   }
 });
 
