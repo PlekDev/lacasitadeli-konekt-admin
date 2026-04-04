@@ -195,7 +195,7 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (res.ok) {
-        notify(`Venta ${data.folio} completada — $${data.total.toFixed(2)}`);
+        notify(`Venta ${data.folio} completada — $${Number(data.total).toFixed(2)}`);
         setCart([]);
         fetchData();
       } else {

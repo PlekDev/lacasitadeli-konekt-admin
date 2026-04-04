@@ -52,7 +52,7 @@ router.post('/', async (req, res) => {
     }
 
     // Obtener total de la venta
-    const ventaRes = await db.query(`SELECT total, folio FROM ventas WHERE id = $1`, [ventaId]);
+    const ventaRes = await db.query(`SELECT total::float, folio FROM ventas WHERE id = $1`, [ventaId]);
     const venta = ventaRes.rows[0];
 
     res.json({
