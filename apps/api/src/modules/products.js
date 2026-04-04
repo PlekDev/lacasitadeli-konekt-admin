@@ -73,6 +73,8 @@ router.get('/', async (req, res) => {
       p.descripcion    AS description,
       p.precio_compra  AS "costPrice",
       p.precio_venta   AS "salePrice",
+      p.precio_mayoreo  AS "wholesalePrice",
+      p.cantidad_mayoreo AS "wholesaleQuantity",
       p.stock_actual   AS stock,
       p.stock_minimo   AS "minStock",
       p.imagen_url     AS image,
@@ -123,6 +125,8 @@ router.get('/:id', async (req, res) => {
         p.descripcion    AS description,
         p.precio_compra  AS "costPrice",
         p.precio_venta   AS "salePrice",
+        p.precio_mayoreo  AS "wholesalePrice",
+        p.cantidad_mayoreo AS "wholesaleQuantity",
         p.stock_actual   AS stock,
         p.stock_minimo   AS "minStock",
         p.imagen_url     AS image,
@@ -149,6 +153,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   const {
     barcode, name, description, salePrice, costPrice,
+    wholesalePrice, wholesaleQuantity,
     stock, minStock, categoryId, image, visibleWeb,
   } = req.body;
 
@@ -159,8 +164,9 @@ router.post('/', async (req, res) => {
     const result = await db.query(
       `INSERT INTO productos
          (codigo_barras, nombre, descripcion, precio_venta, precio_compra,
+          precio_mayoreo, cantidad_mayoreo,
           stock_actual, stock_minimo, categoria_id, imagen_url, visible_web)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, nombre AS name, precio_venta AS "salePrice", stock_actual AS stock`,
       [
         barcode || null,
@@ -168,6 +174,8 @@ router.post('/', async (req, res) => {
         description || null,
         parseFloat(salePrice),
         parseFloat(costPrice) || 0,
+        wholesalePrice ? parseFloat(wholesalePrice) : null,
+        wholesaleQuantity ? parseInt(wholesaleQuantity) : null,
         parseInt(stock) || 0,
         parseInt(minStock) || 5,
         categoryId ? parseInt(categoryId) : null,
@@ -186,39 +194,55 @@ router.post('/', async (req, res) => {
 // PUT /api/products/:id  — actualizar producto
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const {
-    barcode, name, description, salePrice, costPrice,
-    stock, minStock, categoryId, image, visibleWeb,
-  } = req.body;
+  const fields = req.body;
+
+  if (Object.keys(fields).length === 0) {
+    return res.status(400).json({ error: 'No se enviaron campos para actualizar' });
+  }
+
+  const mapping = {
+    barcode: 'codigo_barras',
+    name: 'nombre',
+    description: 'descripcion',
+    salePrice: 'precio_venta',
+    costPrice: 'precio_compra',
+    wholesalePrice: 'precio_mayoreo',
+    wholesaleQuantity: 'cantidad_mayoreo',
+    stock: 'stock_actual',
+    minStock: 'stock_minimo',
+    categoryId: 'categoria_id',
+    image: 'imagen_url',
+    visibleWeb: 'visible_web'
+  };
+
+  const sets = [];
+  const params = [];
+  let i = 1;
+
+  for (const [key, value] of Object.entries(fields)) {
+    const col = mapping[key];
+    if (col) {
+      sets.push(`${col} = $${i++}`);
+      let val = value;
+      if (['salePrice', 'costPrice', 'wholesalePrice'].includes(key)) {
+        val = value !== null ? parseFloat(value) : null;
+      } else if (['stock', 'minStock', 'wholesaleQuantity', 'categoryId'].includes(key)) {
+        val = value !== null ? parseInt(value) : null;
+      }
+      params.push(val);
+    }
+  }
+
+  if (sets.length === 0) {
+    return res.status(400).json({ error: 'Campos no válidos' });
+  }
+
+  params.push(id);
+  const sql = `UPDATE productos SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${i}`;
 
   try {
-    await db.query(
-      `UPDATE productos SET
-        codigo_barras = COALESCE($1,  codigo_barras),
-        nombre        = COALESCE($2,  nombre),
-        descripcion   = COALESCE($3,  descripcion),
-        precio_venta  = COALESCE($4,  precio_venta),
-        precio_compra = COALESCE($5,  precio_compra),
-        stock_actual  = COALESCE($6,  stock_actual),
-        stock_minimo  = COALESCE($7,  stock_minimo),
-        categoria_id  = COALESCE($8,  categoria_id),
-        imagen_url    = COALESCE($9,  imagen_url),
-        visible_web   = COALESCE($10, visible_web)
-       WHERE id = $11`,
-      [
-        barcode   !== undefined ? (barcode || null)              : null,
-        name      !== undefined ? name                           : null,
-        description !== undefined ? (description || null)       : null,
-        salePrice !== undefined ? parseFloat(salePrice)         : null,
-        costPrice !== undefined ? parseFloat(costPrice)         : null,
-        stock     !== undefined ? parseInt(stock)               : null,
-        minStock  !== undefined ? parseInt(minStock)            : null,
-        categoryId !== undefined ? (categoryId ? parseInt(categoryId) : null) : null,
-        image     !== undefined ? (image || null)               : null,
-        visibleWeb !== undefined ? visibleWeb                   : null,
-        id,
-      ]
-    );
+    const result = await db.query(sql, params);
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     res.json({ message: 'Producto actualizado exitosamente' });
   } catch (err) {
     console.error('Error al actualizar producto:', err.message);
