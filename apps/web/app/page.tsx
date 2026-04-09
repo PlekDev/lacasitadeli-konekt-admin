@@ -937,7 +937,7 @@ export default function Dashboard() {
 
           <div className="mt-6 flex items-center px-2 py-4 border-t border-stone-200/50">
             <div className="w-10 h-10 rounded-full bg-surface-container-highest overflow-hidden mr-3 border-2 border-primary/10">
-              <img alt="Staff" className="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCVEI_WfJQ37BHxbxg0wnmCj8TV6U7J17HbjiDEaPzVxJILpy-hU2cpy7hnaOSp0rXFSKAxpZQW7saBwzmOlmF6Tna5ilMWeaPmyZIXBkMeFmCG022a-EBO0EraO24HiljyTpKHEhWRHM-OflMgTzB9cTBUUPNGQ6hhYx6NWzVbQVVE-XjqxTTQ4Z5XNMV-50lf1UcscdhN-EcdjgaBA696jEgBtCCwpKa-8LP5MYInt2Nb6LW1pO-LrnhWr1L4FD-LQgS3-6nnfsFI"/>
+              <img alt="Staff" className="w-full h-full object-cover" src="https://media.istockphoto.com/id/1300845620/es/vector/icono-de-usuario-plano-aislado-sobre-fondo-blanco-s%C3%ADmbolo-de-usuario-ilustraci%C3%B3n-vectorial.jpg?s=2048x2048&w=is&k=20&c=j5BJ73etsLPYk0gCN6_bdDcWevL934SiU6eSOwVceYM="/>
             </div>
             <div>
               <p className="text-xs font-bold text-on-surface font-body">Admin Staff</p>
