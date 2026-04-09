@@ -5,7 +5,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3002/api/:path*',
+       destination: 'https://lacasita-api-production.up.railway.app/api/:path*',
       },
     ];
   },
